@@ -33,6 +33,8 @@ class CityController extends Controller
             )
             ->get();
 
+        if (count($this->city) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
         return ResponseController::json(status: "ok", data: $this->city, code: 200);
     }
 
@@ -82,7 +84,6 @@ class CityController extends Controller
 
             if ($this->city == 0)
                 return ResponseController::json(status: "error", message: "failed insert data", code: 500);
-
 
             return ResponseController::json(status: "ok", message: "success insert data", code: 200);
         }
@@ -150,7 +151,7 @@ class CityController extends Controller
             }
 
             if ($this->city == 0)
-                return ResponseController::json(status: "not found", message: $this->city, code: 404);
+                return ResponseController::json(status: "error", message: $this->city, code: 404);
 
             return ResponseController::json(status: "ok", message: $this->city, code: 200);
         }
