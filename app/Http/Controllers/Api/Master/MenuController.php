@@ -1,0 +1,170 @@
+<?php
+
+namespace App\Http\Controllers\Api\Master;
+
+use App\Http\Controllers\Api\Helpers\DBController;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\JsonResponse;
+
+class MenuController extends Controller
+{
+    private $menu;
+    public function index(): JsonResponse
+    {
+        $this->menu = DB::table('precise.menu as m')
+            ->select(
+                'menu_id',
+                'menu_name',
+                'menu_parent',
+                'm.menu_category_id',
+                'c.menu_category_name',
+                'is_active',
+                'm.created_on',
+                'm.created_by',
+                'm.updated_on',
+                'm.updated_by'
+            )
+            ->leftJoin('precise.menu_category as c', 'm.menu_category_id', '=', 'c.menu_category_id')
+            ->get();
+
+        return response()->json(['status' => 'ok', 'data' => $this->menu], 200);
+    }
+
+    public function show($id): JsonResponse
+    {
+        $this->menu = DB::table('menu')
+            ->where('menu_id', $id)
+            ->select(
+                'menu_name',
+                'menu_parent',
+                'menu_category_id',
+                'is_active'
+            )
+            ->first();
+
+        if (empty($this->menu)) {
+            return response()->json($this->menu, 404);
+        }
+        return response()->json($this->menu, 200);
+    }
+
+    public function create(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'menu_name'         => 'required',
+            'menu_parent'       => 'nullable',
+            'menu_category_id'  => 'required|exists:menu_category,menu_category_id',
+            'created_by'        => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+        }
+        $this->menu = DB::table('precise.menu')
+            ->insert([
+                'menu_name'         => $request->menu_name,
+                'menu_parent'       => $request->menu_parent,
+                'menu_category_id'  => $request->menu_category_id,
+                'created_by'        => $request->created_by
+            ]);
+
+        if ($this->menu == 0) {
+            return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
+        }
+        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+    }
+
+    public function update(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'menu_id'           => 'required|exists:menu,menu_id',
+            'menu_name'         => 'required',
+            'menu_category_id'  => 'required|exists:menu_category,menu_category_id',
+            'menu_parent'       => 'nullable',
+            'is_active'         => 'boolean',
+            'updated_by'        => 'required',
+            'reason'            => 'required'
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            $this->menu = DB::table('precise.menu')
+                ->where('menu_id', $request->menu_id)
+                ->update([
+                    'menu_name'         => $request->menu_name,
+                    'menu_parent'       => $request->menu_parent,
+                    'is_active'         => $request->is_active,
+                    'menu_category_id'  => $request->menu_category_id,
+                    'updated_by'        => $request->updated_by
+                ]);
+
+            if ($this->menu == 0) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+            }
+            DB::commit();
+            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'menu_id'   => 'required|exists:menu,menu_id',
+            'reason'    => 'required',
+            'deleted_by' => 'required'
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "delete");
+            $this->menu = DB::table('precise.menu')
+                ->where('menu_id', $request->menu_id)
+                ->delete();
+
+            if ($this->menu == 0) {
+                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+            }
+
+            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function check(Request $request): JsonResponse
+    {
+        $type = $request->get('type');
+        $value = $request->get('value');
+        $validator = Validator::make($request->all(), [
+            'type'  => 'required',
+            'value' => 'required'
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+        } else {
+            if ($type == "name") {
+                $this->menu = DB::table('precise.menu')
+                    ->where('menu_name', $value)
+                    ->count();
+            }
+
+            if ($this->menu == 0) {
+                return response()->json(['status' => 'error', 'message' => $this->menu], 404);
+            }
+            return response()->json(['status' => 'ok', 'message' => $this->menu], 200);
+        }
+    }
+}
