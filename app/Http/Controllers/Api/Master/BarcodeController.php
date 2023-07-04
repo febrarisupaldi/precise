@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class BarcodeController extends Controller
@@ -33,7 +34,9 @@ class BarcodeController extends Controller
             ->leftJoin("precise.product_brand as b", "a.brand_id", "=", "b.product_brand_id")
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->barcode], 200);
+        if (count($this->barcode) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->barcode, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -117,7 +120,7 @@ class BarcodeController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             $generateBarcode = DB::select("select precise.get_new_ean13() as barcode;");
@@ -135,11 +138,11 @@ class BarcodeController extends Controller
                 ]);
 
             if ($this->barcode == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
+                return ResponseController::json(status: "error", message: "failed input data", code: 500);
             }
-            return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+            return ResponseController::json(status: "ok", message: "success input data", code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -161,7 +164,7 @@ class BarcodeController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -180,14 +183,14 @@ class BarcodeController extends Controller
 
             if ($this->barcode == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             } else {
                 DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+                return ResponseController::json(status: "ok", message: "success update data", code: 200);
             }
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -198,7 +201,7 @@ class BarcodeController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -209,14 +212,14 @@ class BarcodeController extends Controller
 
             if ($this->barcode == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);;
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -236,9 +239,9 @@ class BarcodeController extends Controller
                 ->count();
 
             if ($this->barcode == 0)
-                return response()->json(['status' => 'ok', 'message' => $this->barcode], 404);
+                return ResponseController::json(status: "error", message: $this->barcode, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->barcode], 200);
+            return ResponseController::json(status: "ok", message: $this->barcode, code: 200);
         }
     }
 
@@ -252,11 +255,10 @@ class BarcodeController extends Controller
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, TRUE);
         $result = curl_exec($curl);
 
-        if (curl_getinfo($curl, CURLINFO_HTTP_CODE) == 200) {
-            return response()->json(["status" => "ok", "data" => base64_encode($result)]);
-        } else {
-            return response()->json(["status" => "error", "data" => $result]);
-        }
+        if (curl_getinfo($curl, CURLINFO_HTTP_CODE) == 200)
+            return ResponseController::json(status: "ok", data: base64_encode($result), code: 200);
+        else
+            return ResponseController::json(status: "error", message: $result, code: 500);
         curl_close($curl);
     }
 }
