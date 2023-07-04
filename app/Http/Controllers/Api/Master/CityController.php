@@ -141,7 +141,7 @@ class CityController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $this->city = DB::table('precise.city')->where('city_code', $value)->count();
