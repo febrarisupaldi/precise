@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,9 +28,9 @@ class AddressTypeController extends Controller
                     'updated_by'
                 )
                 ->get();
-            return response()->json(['status' => 'ok', 'data' => $this->address], 200);
+            return ResponseController::json(status: "ok", data: $this->address, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -54,7 +55,7 @@ class AddressTypeController extends Controller
             }
             return response()->json($this->address, 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -62,28 +63,27 @@ class AddressTypeController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'address_type_name' =>  'required',
-            'desc'              =>  'required',
+            'desc'              =>  'nullable',
             'created_by'        =>  'required'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            try {
-                $this->address = DB::table('precise.address_type')
-                    ->insert([
-                        'address_type_name'         => $request->address_type_name,
-                        'address_type_description'  => $request->desc,
-                        'created_by'                => $request->created_by
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        try {
+            $this->address = DB::table('precise.address_type')
+                ->insert([
+                    'address_type_name'         => $request->address_type_name,
+                    'address_type_description'  => $request->desc,
+                    'created_by'                => $request->created_by
+                ]);
 
-                if ($this->address == 0) {
-                    return response()->json(['status' => 'error', 'message' => 'error insert data'], 500);
-                }
-                return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
-            } catch (\Exception $e) {
-                return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            if ($this->address == 0) {
+                return ResponseController::json(status: "error", message: "error insert data", code: 500);
             }
+            return ResponseController::json(status: "ok", message: "success insert data", code: 200);
+        } catch (\Exception $e) {
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -92,34 +92,33 @@ class AddressTypeController extends Controller
         $validator = Validator::make($request->all(), [
             'address_type_id'   =>  'required|exists:address_type,address_type_id',
             'address_type_name' =>  'required',
-            'desc'              =>  'required',
+            'desc'              =>  'nullable',
             'updated_by'        =>  'required'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                $this->address = DB::table('precise.address_type')
-                    ->where('address_type_id', $request->address_type_id)
-                    ->update([
-                        'address_type_name'         => $request->address_type_name,
-                        'address_type_description'  => $request->desc,
-                        'updated_by'                => $request->updated_by
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            $this->address = DB::table('precise.address_type')
+                ->where('address_type_id', $request->address_type_id)
+                ->update([
+                    'address_type_name'         => $request->address_type_name,
+                    'address_type_description'  => $request->desc,
+                    'updated_by'                => $request->updated_by
+                ]);
 
-                if ($this->address == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'error update data'], 500);
-                }
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-            } catch (\Exception $e) {
+            if ($this->address == 0) {
                 DB::rollBack();
-                return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
     public function destroy(Request $request): JsonResponse
@@ -129,26 +128,25 @@ class AddressTypeController extends Controller
             'reason'            =>  'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "delete");
-                $this->address = DB::table('precise.address_type')
-                    ->where('address_type_id', $request->address_type_id)
-                    ->delete();
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "delete");
+            $this->address = DB::table('precise.address_type')
+                ->where('address_type_id', $request->address_type_id)
+                ->delete();
 
-                if ($this->address == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'error'], 500);
-                } else {
-                    DB::commit();
-                    return response()->json(['status' => 'ok', 'message' => 'success'], 200);
-                }
-            } catch (\Exception $e) {
+            if ($this->address == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
+            } else {
+                DB::commit();
+                return ResponseController::json(status: "ok", message: "success delete data", code: 204);
             }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -161,16 +159,16 @@ class AddressTypeController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "name") {
                 $this->address = DB::table('precise.address_type')->where('address_type_name', $value)->count();
             }
 
             if ($this->address == 0)
-                return response()->json(['status' => 'ok', 'message' => $this->address], 404);
+                return ResponseController::json(status: "not found", message: $this->address, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->address]);
+            return ResponseController::json(status: "ok", message: $this->address, code: 200);
         }
     }
 }
