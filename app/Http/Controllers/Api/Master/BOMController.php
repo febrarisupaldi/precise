@@ -505,19 +505,19 @@ class BOMController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "bom_code") {
-                $this->bom = DB::table('bom_hd')
+                $this->bom = DB::table('precise.bom_hd')
                     ->where('bom_code', $value)
                     ->count();
             } elseif ($type == "usage_priority") {
-                $this->bom = DB::table('bom_hd')
+                $this->bom = DB::table('precise.bom_hd')
                     ->where('product_id', $value)
                     ->where('usage_priority', $usage_priority)
                     ->count();
             } elseif ($type == "deleted") {
-                $this->bom = DB::table('work_order')
+                $this->bom = DB::table('precise.work_order')
                     ->where('bom_default', $value)
                     ->count();
             }
