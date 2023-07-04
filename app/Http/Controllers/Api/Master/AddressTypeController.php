@@ -28,6 +28,8 @@ class AddressTypeController extends Controller
                     'updated_by'
                 )
                 ->get();
+            if (count($this->address) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
             return ResponseController::json(status: "ok", data: $this->address, code: 200);
         } catch (\Exception $e) {
@@ -167,7 +169,7 @@ class AddressTypeController extends Controller
             }
 
             if ($this->address == 0)
-                return ResponseController::json(status: "not found", message: $this->address, code: 404);
+                return ResponseController::json(status: "error", message: $this->address, code: 404);
 
             return ResponseController::json(status: "ok", message: $this->address, code: 200);
         }
