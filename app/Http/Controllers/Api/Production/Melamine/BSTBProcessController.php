@@ -26,7 +26,8 @@ class BSTBProcessController extends Controller
                 "b.bstb_packing_qty",
                 "c.work_order_hd_id",
                 "c.workcenter_id",
-                "b.bstb_retail_qty AS qtyBSTB"
+                "b.bstb_retail_qty AS qtyBSTB",
+                "d.uom_code"
             )
             ->join("precise.work_order as c", "b.bstb_retail_pprh_id", "=", "c.work_order_number")
             ->join("precise.product as d", "b.bstb_packing_ppd_id", "=", "d.product_code")
@@ -48,7 +49,8 @@ class BSTBProcessController extends Controller
                 "b.bstb_packing_qty",
                 "c.work_order_hd_id",
                 "c.workcenter_id",
-                DB::raw("IFNULL(SUM(a.trans_qty_kw1),0) AS qtyBSTB")
+                DB::raw("IFNULL(SUM(a.trans_qty_kw1),0) AS qtyBSTB"),
+                "d.uom_code"
             )
             ->join("precise.bstb as b", "a.bstb_id", "=", "b.bstb_id")
             ->join("precise.work_order as c", "b.bstb_op_packing", "=", "c.work_order_number")
