@@ -28,6 +28,7 @@ class AddressTypeController extends Controller
                     'updated_by'
                 )
                 ->get();
+
             return ResponseController::json(status: "ok", data: $this->address, code: 200);
         } catch (\Exception $e) {
             return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);

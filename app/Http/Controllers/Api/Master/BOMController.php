@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class BOMController extends Controller
@@ -30,7 +31,10 @@ class BOMController extends Controller
             ->leftJoin('precise.product_workcenter AS pw', 'a.product_id', '=', 'pw.product_id')
             ->leftJoin('precise.workcenter AS w', 'pw.workcenter_id', '=', 'w.workcenter_id')
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->bom], 200);
+
+        if (count($this->bom) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->bom, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -112,9 +116,8 @@ class BOMController extends Controller
                     "detail"              => $detail
                 );
             return response()->json($this->bom, 200);
-            //return response()->json(['data' => $this->bom]);
         } catch (\Exception $e) {
-            return response()->json($e->getMessage(), 200);
+            return response()->json($e->getMessage(), 500);
         }
     }
 
@@ -156,11 +159,11 @@ class BOMController extends Controller
                 ->get();
 
             if (count($this->bom) == 0)
-                return response()->json(['status' => 'error', 'data' => 'not found'], 404);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-            return response()->json(['status' => 'ok', 'data' => $this->bom], 200);
+            return ResponseController::json(status: "ok", data: $this->bom, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'data' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -231,9 +234,9 @@ class BOMController extends Controller
         }
         //get using count
         if (count($this->bom) == 0)
-            return response()->json(['status' => 'error', 'data' => 'not found'], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(['status' => 'ok', 'data' => $this->bom], 200);
+        return ResponseController::json(status: "ok", data: $this->bom, code: 200);
     }
 
     public function showDetailByWorkcenter($id): JsonResponse
@@ -276,12 +279,12 @@ class BOMController extends Controller
                 ->leftJoin('precise.product_workcenter as pw', 'hd.product_id', '=', 'pw.product_id')
                 ->get();
 
-            if (empty($this->bom))
-                return response()->json(['status' => 'error', 'data' => 'not found'], 404);
+            if (count($this->bom) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-            return response()->json(['status' => 'ok', 'data' => $this->bom], 200);
+            return ResponseController::json(status: "ok", data: $this->bom, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'data' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -304,9 +307,9 @@ class BOMController extends Controller
                 )
                 ->leftJoin("precise.product as b", "a.material_id", "=", "b.product_id")
                 ->get();
-            return response()->json(['status' => 'ok', 'data' => $this->bom], 200);
+            return ResponseController::json(status: "ok", data: $this->bom, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'data' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -324,50 +327,49 @@ class BOMController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
 
-                $id = DB::table('precise.bom_hd')
-                    ->insertGetId([
-                        'bom_code'          => $data['bom_code'],
-                        'bom_name'          => $data['bom_name'],
-                        'bom_description'   => $data['bom_description'],
-                        'product_id'        => $data['product_id'],
-                        'product_qty'       => $data['product_qty'],
-                        'product_uom'       => $data['product_uom'],
-                        'start_date'        => $data['start_date'],
-                        'expired_date'      => $data['expired_date'],
-                        'usage_priority'    => $data['usage_priority'],
-                        'is_active'         => $data['is_active'],
-                        'created_by'        => $data['created_by']
-                    ]);
+            $id = DB::table('precise.bom_hd')
+                ->insertGetId([
+                    'bom_code'          => $data['bom_code'],
+                    'bom_name'          => $data['bom_name'],
+                    'bom_description'   => $data['bom_description'],
+                    'product_id'        => $data['product_id'],
+                    'product_qty'       => $data['product_qty'],
+                    'product_uom'       => $data['product_uom'],
+                    'start_date'        => $data['start_date'],
+                    'expired_date'      => $data['expired_date'],
+                    'usage_priority'    => $data['usage_priority'],
+                    'is_active'         => $data['is_active'],
+                    'created_by'        => $data['created_by']
+                ]);
 
-                foreach ($data['detail'] as $d) {
-                    $dt[] = [
-                        'bom_hd_id'             => $id,
-                        'material_id'           => $d['material_id'],
-                        'material_qty'          => $d['material_qty'],
-                        'material_uom'          => $d['material_uom'],
-                        'created_by'            => $d['created_by']
-                    ];
-                }
-
-                DB::table('precise.bom_dt')
-                    ->insert($dt);
-
-                $trans = DB::table('precise.bom_hd')
-                    ->where('bom_hd_id', $id)
-                    ->select('bom_code')
-                    ->first();
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => $trans->bom_code], 200);
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            foreach ($data['detail'] as $d) {
+                $dt[] = [
+                    'bom_hd_id'             => $id,
+                    'material_id'           => $d['material_id'],
+                    'material_qty'          => $d['material_qty'],
+                    'material_uom'          => $d['material_uom'],
+                    'created_by'            => $d['created_by']
+                ];
             }
+
+            DB::table('precise.bom_dt')
+                ->insert($dt);
+
+            $trans = DB::table('precise.bom_hd')
+                ->where('bom_hd_id', $id)
+                ->select('bom_code')
+                ->first();
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success input data", id: $trans->bom_code, code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -386,72 +388,71 @@ class BOMController extends Controller
             'reason'             => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                DB::table('precise.bom_hd')
-                    ->where('bom_hd_id', $data['bom_hd_id'])
-                    ->update([
-                        'bom_code'              => $data['bom_code'],
-                        'bom_name'              => $data['bom_name'],
-                        'bom_description'       => $data['bom_description'],
-                        'product_id'            => $data['product_id'],
-                        'product_qty'           => $data['product_qty'],
-                        'product_uom'           => $data['product_uom'],
-                        'is_active'             => $data['is_active'],
-                        'start_date'            => $data['start_date'],
-                        'expired_date'          => $data['expired_date'],
-                        'usage_priority'        => $data['usage_priority'],
-                        'updated_by'            => $data['updated_by']
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            DB::table('precise.bom_hd')
+                ->where('bom_hd_id', $data['bom_hd_id'])
+                ->update([
+                    'bom_code'              => $data['bom_code'],
+                    'bom_name'              => $data['bom_name'],
+                    'bom_description'       => $data['bom_description'],
+                    'product_id'            => $data['product_id'],
+                    'product_qty'           => $data['product_qty'],
+                    'product_uom'           => $data['product_uom'],
+                    'is_active'             => $data['is_active'],
+                    'start_date'            => $data['start_date'],
+                    'expired_date'          => $data['expired_date'],
+                    'usage_priority'        => $data['usage_priority'],
+                    'updated_by'            => $data['updated_by']
+                ]);
 
-                if ($data['inserted'] != null) {
-                    foreach ($data['inserted'] as $d) {
-                        $dt[] = [
-                            'bom_hd_id'             => $d['bom_hd_id'],
-                            'material_id'           => $d['material_id'],
-                            'material_qty'          => $d['material_qty'],
-                            'material_uom'          => $d['material_uom'],
-                            'created_by'            => $d['created_by']
-                        ];
-                    }
-                    DB::table('precise.bom_dt')
-                        ->insert($dt);
+            if ($data['inserted'] != null) {
+                foreach ($data['inserted'] as $d) {
+                    $dt[] = [
+                        'bom_hd_id'             => $d['bom_hd_id'],
+                        'material_id'           => $d['material_id'],
+                        'material_qty'          => $d['material_qty'],
+                        'material_uom'          => $d['material_uom'],
+                        'created_by'            => $d['created_by']
+                    ];
                 }
-
-                if ($data['updated'] != null) {
-                    foreach ($data['updated'] as $d) {
-                        DB::table('precise.bom_dt')
-                            ->where('bom_dt_id', $d['bom_dt_id'])
-                            ->update([
-                                'bom_hd_id'         => $d['bom_hd_id'],
-                                'material_id'       => $d['material_id'],
-                                'material_qty'      => $d['material_qty'],
-                                'material_uom'      => $d['material_uom'],
-                                'updated_by'        => $d['updated_by']
-                            ]);
-                    }
-                }
-
-                if ($data['deleted'] != null) {
-                    $delete = array();
-                    foreach ($data['deleted'] as $del) {
-                        $delete[] = $del['bom_dt_id'];
-                    }
-
-                    DB::table('precise.bom_dt')
-                        ->whereIn('bom_dt_id', $delete)
-                        ->delete();
-                }
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                DB::table('precise.bom_dt')
+                    ->insert($dt);
             }
+
+            if ($data['updated'] != null) {
+                foreach ($data['updated'] as $d) {
+                    DB::table('precise.bom_dt')
+                        ->where('bom_dt_id', $d['bom_dt_id'])
+                        ->update([
+                            'bom_hd_id'         => $d['bom_hd_id'],
+                            'material_id'       => $d['material_id'],
+                            'material_qty'      => $d['material_qty'],
+                            'material_uom'      => $d['material_uom'],
+                            'updated_by'        => $d['updated_by']
+                        ]);
+                }
+            }
+
+            if ($data['deleted'] != null) {
+                $delete = array();
+                foreach ($data['deleted'] as $del) {
+                    $delete[] = $del['bom_dt_id'];
+                }
+
+                DB::table('precise.bom_dt')
+                    ->whereIn('bom_dt_id', $delete)
+                    ->delete();
+            }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -462,25 +463,35 @@ class BOMController extends Controller
             'reason'    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
             DBController::reason($request, "delete");
 
-            DB::table('precise.bom_dt')
+            $check = DB::table('precise.bom_dt')
                 ->where('bom_hd_id', $request->bom_hd_id)
                 ->delete();
 
-            DB::table('precise.bom_hd')
+            if ($check == 0) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "error delete data", code: 500);
+            }
+
+            $check = DB::table('precise.bom_hd')
                 ->where('bom_hd_id', $request->bom_hd_id)
                 ->delete();
+
+            if ($check == 0) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "error delete data", code: 500);
+            }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -511,9 +522,9 @@ class BOMController extends Controller
                     ->count();
             }
             if ($this->bom == 0)
-                return response()->json(['status' => 'ok', 'message' => $this->bom], 404);
+                return ResponseController::json(status: "error", message: $this->bom, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->bom], 200);
+            return ResponseController::json(status: "ok", message: $this->bom, code: 200);
         }
     }
 }
