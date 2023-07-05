@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class CountryController extends Controller
@@ -25,7 +26,9 @@ class CountryController extends Controller
                 'updated_by'
             )
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->country], 200);
+        if (count($this->country) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->country, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -52,7 +55,7 @@ class CountryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->country = DB::table('precise.country')
@@ -62,10 +65,10 @@ class CountryController extends Controller
                 'created_by' => $request->created_by
             ]);
 
-        if ($this->country == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        if ($this->country == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -79,29 +82,27 @@ class CountryController extends Controller
         ]);
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
+        }
+        try {
             DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                $this->country = DB::table('precise.country')
-                    ->where('country_id', $request->country_id)
-                    ->update([
-                        'country_code' => $request->country_code,
-                        'country_name' => $request->country_name,
-                        'updated_by' => $request->updated_by
-                    ]);
+            DBController::reason($request, "update");
+            $this->country = DB::table('precise.country')
+                ->where('country_id', $request->country_id)
+                ->update([
+                    'country_code' => $request->country_code,
+                    'country_name' => $request->country_name,
+                    'updated_by' => $request->updated_by
+                ]);
 
-                if ($this->country == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-                } else {
-                    DB::commit();
-                    return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-                }
-            } catch (\Exception $e) {
+            if ($this->country == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -126,9 +127,9 @@ class CountryController extends Controller
                     ->count();
             }
             if ($this->country == 0)
-                return response()->json(['status' => 'error', 'message' => $this->country], 400);
+                return ResponseController::json(status: "error", message: $this->country, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->country]);
+            return ResponseController::json(status: "ok", message: $this->country, code: 200);
         }
     }
 }
