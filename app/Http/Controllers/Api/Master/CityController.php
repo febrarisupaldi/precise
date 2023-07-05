@@ -50,9 +50,8 @@ class CityController extends Controller
                 ->where('city_id', $id)
                 ->first();
 
-            if (empty($this->city)) {
+            if (empty($this->city))
                 return response()->json("error", 404);
-            }
             return response()->json($this->city, 200);
         } catch (\Exception $e) {
             return response()->json($e->getMessage(), 500);
@@ -73,20 +72,19 @@ class CityController extends Controller
 
         if ($validator->fails()) {
             return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
-        } else {
-            $this->city = DB::table('precise.city')
-                ->insert([
-                    'city_code'     => $request->city_code,
-                    'city_name'     => $request->city_name,
-                    'state_id'      => $request->state_id,
-                    'created_by'    => $request->created_by
-                ]);
-
-            if ($this->city == 0)
-                return ResponseController::json(status: "error", message: "failed insert data", code: 500);
-
-            return ResponseController::json(status: "ok", message: "success insert data", code: 200);
         }
+        $this->city = DB::table('precise.city')
+            ->insert([
+                'city_code'     => $request->city_code,
+                'city_name'     => $request->city_name,
+                'state_id'      => $request->state_id,
+                'created_by'    => $request->created_by
+            ]);
+
+        if ($this->city == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -105,30 +103,29 @@ class CityController extends Controller
 
         if ($validator->fails()) {
             return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                $this->city = DB::table('precise.city')
-                    ->where('city_id', $request->city_id)
-                    ->update([
-                        'city_code'     => $request->city_code,
-                        'city_name'     => $request->city_name,
-                        'state_id'      => $request->state_id,
-                        'updated_by'    => $request->updated_by
-                    ]);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            $this->city = DB::table('precise.city')
+                ->where('city_id', $request->city_id)
+                ->update([
+                    'city_code'     => $request->city_code,
+                    'city_name'     => $request->city_name,
+                    'state_id'      => $request->state_id,
+                    'updated_by'    => $request->updated_by
+                ]);
 
-                if ($this->city == 0) {
-                    DB::rollback();
-                    return ResponseController::json(status: "error", message: "failed update data", code: 500);
-                } else {
-                    DB::commit();
-                    return ResponseController::json(status: "ok", message: "success update data", code: 200);
-                }
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
+            if ($this->city == 0) {
+                DB::rollback();
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 

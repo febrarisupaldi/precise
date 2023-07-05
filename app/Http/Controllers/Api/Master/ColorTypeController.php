@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ColorTypeController extends Controller
@@ -26,7 +27,9 @@ class ColorTypeController extends Controller
             )
             ->get();
 
-        return response()->json(['status' => 'ok', 'data' => $this->colorType], 200);
+        if (count($this->colorType) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->colorType, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -40,7 +43,7 @@ class ColorTypeController extends Controller
                 )
                 ->first();
             if (empty($this->colorType)) {
-                return response()->json($this->colorType, 404);
+                return response()->json("not found", 404);
             }
             return response()->json($this->colorType, 200);
         } catch (\Exception $e) {
@@ -57,21 +60,19 @@ class ColorTypeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->colorType = DB::table('precise.color_type')
-                ->insert([
-                    'color_type_code'   => $request->color_type_code,
-                    'color_type_name'   => $request->color_type_name,
-                    'created_by'        => $request->created_by
-                ]);
-
-            if ($this->colorType == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-            }
-
-            return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->colorType = DB::table('precise.color_type')
+            ->insert([
+                'color_type_code'   => $request->color_type_code,
+                'color_type_name'   => $request->color_type_name,
+                'created_by'        => $request->created_by
+            ]);
+
+        if ($this->colorType == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -84,30 +85,29 @@ class ColorTypeController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                $this->colorType = DB::table('precise.color_type')
-                    ->where('color_type_id', $request->color_type_id)
-                    ->update([
-                        'color_type_code'   => $request->color_type_code,
-                        'color_type_name'   => $request->color_type_name,
-                        'updated_by'        => $request->updated_by
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            $this->colorType = DB::table('precise.color_type')
+                ->where('color_type_id', $request->color_type_id)
+                ->update([
+                    'color_type_code'   => $request->color_type_code,
+                    'color_type_name'   => $request->color_type_name,
+                    'updated_by'        => $request->updated_by
+                ]);
 
-                if ($this->colorType == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-                }
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-            } catch (\Exception $e) {
+            if ($this->colorType == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -118,7 +118,7 @@ class ColorTypeController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -129,14 +129,14 @@ class ColorTypeController extends Controller
 
             if ($this->colorType == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'Failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -149,7 +149,7 @@ class ColorTypeController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == 'code') {
                 $this->colorType = DB::table('precise.color_type')
@@ -162,9 +162,9 @@ class ColorTypeController extends Controller
             }
 
             if ($this->colorType == 0)
-                return response()->json(['status' => 'error', 'message' => $this->colorType], 404);
+                return ResponseController::json(status: "error", message: $this->colorType, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->colorType], 200);
+            return ResponseController::json(status: "ok", message: $this->colorType, code: 200);
         }
     }
 }
