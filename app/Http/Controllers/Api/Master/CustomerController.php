@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Master;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -55,7 +56,9 @@ class CustomerController extends Controller
                 $join->on("ca.is_default", DB::raw(1));
             })
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->customer], 200);
+        if (count($this->customer) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->customer, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -84,23 +87,27 @@ class CustomerController extends Controller
 
     public function showByRetail($id): JsonResponse
     {
-        $value = explode("-", $id);
-        $this->customer = DB::table('precise.customer as a')
-            ->whereIn('b.retail_type_id', $value)
-            ->select(
-                'customer_id',
-                'customer_code',
-                'customer_name',
-                'a.customer_alias_name',
-                'c.city_name as Kota',
-                'b.retail_type_code'
-            )
-            ->leftJoin('retail_type as b', 'a.retail_type_id', '=', 'b.retail_type_id')
-            ->leftJoin('city as c', 'a.city_id', '=', 'c.city_id')
-            ->orderBy('customer_id')
-            ->get();
+        try {
+            $value = explode("-", $id);
+            $this->customer = DB::table('precise.customer as a')
+                ->whereIn('b.retail_type_id', $value)
+                ->select(
+                    'customer_id',
+                    'customer_code',
+                    'customer_name',
+                    'a.customer_alias_name',
+                    'c.city_name as Kota',
+                    'b.retail_type_code'
+                )
+                ->leftJoin('retail_type as b', 'a.retail_type_id', '=', 'b.retail_type_id')
+                ->leftJoin('city as c', 'a.city_id', '=', 'c.city_id')
+                ->orderBy('customer_id')
+                ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->customer], 200);
+            return response()->json(["status" => "ok", "data" => $this->customer], 200);
+        } catch (\Exception $e) {
+            return ResponseController::json(status: "error", data: $e->getMessage(), code: 500);
+        }
     }
 
     public function getCustomerInStock($nik, $name = null): JsonResponse
@@ -125,26 +132,9 @@ class CustomerController extends Controller
             $this->customer = $this->customer
                 ->where('pc.customer_name', 'like', '%' . $name . '%');
 
-        return response()->json(["status" => "ok", "data" => $this->customer->get()], 200);
+        $customer = $this->customer->get();
+        if (count($customer) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->customer, code: 200);
     }
-
-    // public function getCustomerInStockByNIK($nik)
-    // {
-    //     $this->customer = DB::table('dbstok.customer as c')
-    //         ->select(
-    //             'c.id_customer',
-    //             'c.nm_customer',
-    //             'c.wilayah',
-    //             'c.provinsi',
-    //             'c.group',
-    //             'c.nm_gudang',
-    //             'a.nik',
-    //             'c.nama_lengkap'
-    //         )
-    //         ->leftJoin('dbstok.admins as a', 'a.id_user', '=', 'c.id_user')
-    //         ->where('a.nik', $nik)
-    //         ->get();
-
-    //     return response()->json(["data" => $this->customer]);
-    // }
 }
