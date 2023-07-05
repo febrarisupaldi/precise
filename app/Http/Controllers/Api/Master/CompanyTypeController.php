@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class CompanyTypeController extends Controller
@@ -25,7 +26,9 @@ class CompanyTypeController extends Controller
                 'updated_by'
             )
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->companyType], 200);
+        if (count($this->companyType) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->companyType, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -35,9 +38,9 @@ class CompanyTypeController extends Controller
             ->select('company_type_code', 'company_type_description')
             ->first();
 
-        if (empty($this->companyType)) {
+        if (empty($this->companyType))
             return response()->json("not found", 404);
-        }
+
         return response()->json($this->companyType, 200);
     }
 
@@ -50,21 +53,19 @@ class CompanyTypeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->companyType = DB::table('precise.company_type')
-                ->insert([
-                    'company_type_code'         => $request->company_type_code,
-                    'company_type_description'  => $request->desc,
-                    'created_by'                => $request->created_by
-                ]);
-
-            if ($this->companyType == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-            }
-
-            return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->companyType = DB::table('precise.company_type')
+            ->insert([
+                'company_type_code'         => $request->company_type_code,
+                'company_type_description'  => $request->desc,
+                'created_by'                => $request->created_by
+            ]);
+
+        if ($this->companyType == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -77,31 +78,30 @@ class CompanyTypeController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
 
-                $this->companyType = DB::table('precise.company_type')
-                    ->where('company_type_id', $request->company_type_id)
-                    ->update([
-                        'company_type_code'         => $request->company_type_code,
-                        'company_type_description'  => $request->desc,
-                        'updated_by'                => $request->updated_by
-                    ]);
+            $this->companyType = DB::table('precise.company_type')
+                ->where('company_type_id', $request->company_type_id)
+                ->update([
+                    'company_type_code'         => $request->company_type_code,
+                    'company_type_description'  => $request->desc,
+                    'updated_by'                => $request->updated_by
+                ]);
 
-                if ($this->companyType == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-                }
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-            } catch (\Exception $e) {
+            if ($this->companyType == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -114,7 +114,7 @@ class CompanyTypeController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == 'code') {
                 $this->companyType = DB::table('precise.company_type')
@@ -123,9 +123,9 @@ class CompanyTypeController extends Controller
             }
 
             if ($this->companyType == 0)
-                return response()->json(['status' => 'error', 'message' => $this->companyType], 404);
+                return ResponseController::json(status: "error", message: $this->companyType, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->companyType], 200);
+            return ResponseController::json(status: "ok", message: $this->companyType, code: 200);
         }
     }
 }
