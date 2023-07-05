@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class CoolingMethodController extends Controller
@@ -27,7 +28,9 @@ class CoolingMethodController extends Controller
             )
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->coolingMethod], 200);
+        if (count($this->coolingMethod) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->coolingMethod, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -45,9 +48,8 @@ class CoolingMethodController extends Controller
                 'updated_by'
             )
             ->first();
-        if (empty($this->coolingMethod)) {
+        if (empty($this->coolingMethod))
             return response()->json("not found", 404);
-        }
 
         return response()->json($this->coolingMethod, 200);
     }
@@ -60,21 +62,19 @@ class CoolingMethodController extends Controller
             'created_by'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->coolingMethod = DB::table('precise.cooling_method')
-                ->insert([
-                    'cooling_method_name'           => $request->cooling_method_name,
-                    'cooling_method_description'    => $request->desc,
-                    'created_by'                    => $request->created_by
-                ]);
-
-            if ($this->coolingMethod == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed success data'], 500);
-            }
-
-            return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->coolingMethod = DB::table('precise.cooling_method')
+            ->insert([
+                'cooling_method_name'           => $request->cooling_method_name,
+                'cooling_method_description'    => $request->desc,
+                'created_by'                    => $request->created_by
+            ]);
+
+        if ($this->coolingMethod == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -88,31 +88,30 @@ class CoolingMethodController extends Controller
             'updated_by'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                $this->coolingMethod = DB::table('precise.cooling_method')
-                    ->where('cooling_method_id', $request->cooling_method_id)
-                    ->update([
-                        'cooling_method_name'       => $request->cooling_method_name,
-                        'cooling_method_description' => $request->desc,
-                        'is_active'                 => $request->is_active,
-                        'updated_by'                => $request->updated_by
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            $this->coolingMethod = DB::table('precise.cooling_method')
+                ->where('cooling_method_id', $request->cooling_method_id)
+                ->update([
+                    'cooling_method_name'       => $request->cooling_method_name,
+                    'cooling_method_description' => $request->desc,
+                    'is_active'                 => $request->is_active,
+                    'updated_by'                => $request->updated_by
+                ]);
 
-                if ($this->coolingMethod == 0) {
-                    DB::rollback();
-                    return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-                }
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            if ($this->coolingMethod == 0) {
+                DB::rollback();
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -125,7 +124,7 @@ class CoolingMethodController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "name")
                 $this->coolingMethod = DB::table('precise.cooling_method')
@@ -133,9 +132,9 @@ class CoolingMethodController extends Controller
                     ->count();
 
             if ($this->coolingMethod == 0)
-                return response()->json(['status' => 'error', 'message' => $this->coolingMethod], 404);
+                return ResponseController::json(status: "error", message: $this->coolingMethod, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->coolingMethod], 200);
+            return ResponseController::json(status: "ok", message: $this->coolingMethod, code: 200);
         }
     }
 }
