@@ -81,7 +81,7 @@ class CountryController extends Controller
             'reason'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             DB::beginTransaction();

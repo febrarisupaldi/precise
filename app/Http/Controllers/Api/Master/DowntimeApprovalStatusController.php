@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class DowntimeApprovalStatusController extends Controller
@@ -24,9 +25,10 @@ class DowntimeApprovalStatusController extends Controller
                 'a.updated_by'
             )
             ->get();
+        if (count($this->downtimeApprovalStatus) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-
-        return response()->json(["status" => "ok", "data" => $this->downtimeApprovalStatus], 200);
+        return ResponseController::json(status: "ok", data: $this->downtimeApprovalStatus, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -57,21 +59,19 @@ class DowntimeApprovalStatusController extends Controller
             'created_by'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-        } else {
-            $this->downtimeApprovalStatus = DB::table('precise.downtime_approval_status')
-                ->insert([
-                    'status_code'               => $request->status_code,
-                    'status_description'        => $request->desc,
-                    'created_by'                => $request->created_by
-                ]);
-
-            if ($this->downtimeApprovalStatus == 0) {
-                return response()->json(['status' => 'error', 'message' => 'Failed to insert downtime approval status, Contact your administrator']);
-            }
-
-            return response()->json(['status' => 'ok', 'message' => 'downtime approval status has been inserted']);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->downtimeApprovalStatus = DB::table('precise.downtime_approval_status')
+            ->insert([
+                'status_code'               => $request->status_code,
+                'status_description'        => $request->desc,
+                'created_by'                => $request->created_by
+            ]);
+
+        if ($this->downtimeApprovalStatus == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -82,30 +82,29 @@ class DowntimeApprovalStatusController extends Controller
             'updated_by'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-        } else {
-            try {
-                DB::beginTransaction();
-                DBController::reason($request, "update");
-                $this->downtimeApprovalStatus = DB::table('precise.downtime_approval_status')
-                    ->where('status_code', $request->status_code)
-                    ->update([
-                        'status_code'               => $request->status_code,
-                        'status_description'        => $request->desc,
-                        'updated_by'                => $request->updated_by
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        try {
+            DB::beginTransaction();
+            DBController::reason($request, "update");
+            $this->downtimeApprovalStatus = DB::table('precise.downtime_approval_status')
+                ->where('status_code', $request->status_code)
+                ->update([
+                    'status_code'               => $request->status_code,
+                    'status_description'        => $request->desc,
+                    'updated_by'                => $request->updated_by
+                ]);
 
-                if ($this->downtimeApprovalStatus == 0) {
-                    DB::rollback();
-                    return response()->json(['status' => 'error', 'message' => 'Failed to update downtime approval status, Contact your administrator']);
-                }
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'downtime approval status has been updated']);
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            if ($this->downtimeApprovalStatus == 0) {
+                DB::rollback();
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -117,7 +116,7 @@ class DowntimeApprovalStatusController extends Controller
             'deleted_by'    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -129,14 +128,14 @@ class DowntimeApprovalStatusController extends Controller
 
             if ($this->downtimeApprovalStatus == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'Failed to delete downtime approval status, Contact your administrator']);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'downtime approval status has been deleted']);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -149,7 +148,7 @@ class DowntimeApprovalStatusController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $this->downtimeApprovalStatus = DB::table('precise.downtime_approval_status')
@@ -158,10 +157,10 @@ class DowntimeApprovalStatusController extends Controller
             }
 
             if ($this->downtimeApprovalStatus == 0) {
-                return response()->json(['status' => 'error', 'message' => 'not found'], 404);
+                return ResponseController::json(status: "error", message: $this->downtimeApprovalStatus, code: 404);
             }
 
-            return response()->json(['status' => 'ok', 'message' => $this->downtimeApprovalStatus]);
+            return ResponseController::json(status: "ok", message: $this->downtimeApprovalStatus, code: 200);
         }
     }
 }
