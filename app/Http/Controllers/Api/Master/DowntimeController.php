@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -13,28 +14,21 @@ class DowntimeController extends Controller
 {
     private $downtime;
 
-    public function index(Request $request): JsonResponse
+    public function index($workcenter): JsonResponse
     {
-        $wc = $request->get('workcenter');
-        $validator = Validator::make($request->all(), [
-            'workcenter' => 'required'
-        ]);
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $workcenter = explode("-", $wc);
-            try {
-                $this->downtime = DB::table('precise.downtime as a')
-                    ->whereIn('w.workcenter_id', $workcenter)
-                    ->select(
-                        'a.downtime_id',
-                        'a.downtime_code',
-                        'a.downtime_name',
-                        'a.downtime_description',
-                        'g.downtime_group_code',
-                        'g.downtime_group_name',
-                        'a.std_duration',
-                        DB::raw("
+        try {
+            $workcenter = explode("-", $workcenter);
+            $this->downtime = DB::table('precise.downtime as a')
+                ->whereIn('w.workcenter_id', $workcenter)
+                ->select(
+                    'a.downtime_id',
+                    'a.downtime_code',
+                    'a.downtime_name',
+                    'a.downtime_description',
+                    'g.downtime_group_code',
+                    'g.downtime_group_name',
+                    'a.std_duration',
+                    DB::raw("
                         case a.is_planned 
                             when 0 then 'Tidak aktif'
                             when 1 then 'Aktif' 
@@ -44,22 +38,22 @@ class DowntimeController extends Controller
                             when 1 then 'Aktif' 
                         end as 'is_need_approval'
                     "),
-                        'a.to_be_added1',
-                        'a.to_be_added2',
-                        'a.created_on',
-                        'a.created_by',
-                        'a.updated_on',
-                        'a.updated_by'
-                    )
-                    ->leftJoin('precise.downtime_group as g', 'a.downtime_group_id', '=', 'g.downtime_group_id')
-                    ->leftJoin('precise.workcenter as w', 'a.workcenter_id', '=', 'w.workcenter_id')
-                    ->get();
-            } catch (\Exception $e) {
-                return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
-            }
+                    'a.to_be_added1',
+                    'a.to_be_added2',
+                    'a.created_on',
+                    'a.created_by',
+                    'a.updated_on',
+                    'a.updated_by'
+                )
+                ->leftJoin('precise.downtime_group as g', 'a.downtime_group_id', '=', 'g.downtime_group_id')
+                ->leftJoin('precise.workcenter as w', 'a.workcenter_id', '=', 'w.workcenter_id')
+                ->get();
+            if (count($this->downtime) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-
-            return response()->json(["status" => "ok", "data" => $this->downtime], 200);
+            return ResponseController::json(status: "ok", data: $this->downtime, code: 200);
+        } catch (\Exception $e) {
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -114,7 +108,7 @@ class DowntimeController extends Controller
             'created_by'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->downtime = DB::table('precise.downtime')
             ->insert([
@@ -131,11 +125,10 @@ class DowntimeController extends Controller
                 'created_by'            => $request->created_by
             ]);
 
-        if ($this->downtime == 0) {
-            return response()->json(['status' => 'error', 'message' => 'Failed insert data'], 500);
-        }
+        if ($this->downtime == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
 
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -154,7 +147,7 @@ class DowntimeController extends Controller
             'updated_by'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -179,14 +172,14 @@ class DowntimeController extends Controller
 
             if ($this->downtime == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'Failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -197,7 +190,7 @@ class DowntimeController extends Controller
             'deleted_by'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -210,14 +203,14 @@ class DowntimeController extends Controller
 
             if ($this->downtime == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'Failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -230,7 +223,7 @@ class DowntimeController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $this->downtime = DB::table('precise.downtime')
@@ -238,11 +231,10 @@ class DowntimeController extends Controller
                     ->count();
             }
 
-            if ($this->downtime == 0) {
-                return response()->json(['status' => 'error', 'message' => 'not found'], 404);
-            }
+            if ($this->downtime == 0)
+                return ResponseController::json(status: "error", message: $this->downtime, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->downtime]);
+            return ResponseController::json(status: "ok", message: $this->downtime, code: 200);
         }
     }
 }

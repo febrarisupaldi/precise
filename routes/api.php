@@ -225,7 +225,7 @@ Route::group(
                 Route::get('customer-group-member/check', 'Api\Master\CustomerGroupMemberController@check');
 
                 //Downtime
-                Route::get('downtime', 'Api\Master\DowntimeController@index');
+                Route::get('downtime/workcenter/{workcenter}', 'Api\Master\DowntimeController@index');
                 Route::get('downtime/check', 'Api\Master\DowntimeController@check');
                 Route::get('downtime/{id}', 'Api\Master\DowntimeController@show');
                 Route::post('downtime', 'Api\Master\DowntimeController@create');
