@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class DriverController extends Controller
@@ -32,7 +33,10 @@ class DriverController extends Controller
             ->leftJoin('precise.employee as e', 'd.driver_nik', '=', 'e.employee_nik')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->driver], 200);
+        if (count($this->driver) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->driver, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -63,20 +67,18 @@ class DriverController extends Controller
             ]
         );
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->driver = DB::table('precise.driver')
-                ->insert([
-                    'driver_nik' => $request->driver_nik,
-                    'created_by' => $request->created_by
-                ]);
-
-            if ($this->driver == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-            }
-
-            return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->driver = DB::table('precise.driver')
+            ->insert([
+                'driver_nik' => $request->driver_nik,
+                'created_by' => $request->created_by
+            ]);
+
+        if ($this->driver == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -92,29 +94,29 @@ class DriverController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                $this->driver = DB::table('precise.driver')
-                    ->where('driver_nik', $request->driver_nik)
-                    ->update([
-                        'is_active' => $request->is_active,
-                        'updated_by' => $request->updated_by
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
 
-                if ($this->driver == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-                }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            $this->driver = DB::table('precise.driver')
+                ->where('driver_nik', $request->driver_nik)
+                ->update([
+                    'is_active' => $request->is_active,
+                    'updated_by' => $request->updated_by
+                ]);
 
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-            } catch (\Exception $e) {
+            if ($this->driver == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -138,11 +140,10 @@ class DriverController extends Controller
                     ->count();
             }
 
-            if ($this->driver == 0) {
-                return response()->json(['status' => 'error', 'message' => 'not found'], 404);
-            }
+            if ($this->driver == 0)
+                return ResponseController::json(status: "error", message: $this->driver, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->driver], 200);
+            return ResponseController::json(status: "ok", message: $this->driver, code: 200);
         }
     }
 }
