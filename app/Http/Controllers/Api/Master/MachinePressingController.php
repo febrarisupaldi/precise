@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class MachinePressingController extends Controller
@@ -43,7 +44,10 @@ class MachinePressingController extends Controller
                 'm.updated_by'
             )->get();
 
-        return response()->json(['status' => 'ok', 'data' => $this->machine], 200);
+        if (count($this->machine) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->machine, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -118,7 +122,7 @@ class MachinePressingController extends Controller
         return response()->json($this->machine, 200);
     }
 
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $validator = Validator::make(
             $request->all(),
@@ -143,7 +147,7 @@ class MachinePressingController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->machine = DB::table('precise.machine_pressing')->insert([
             'machine_code'          => $request->machine_code,
@@ -164,13 +168,13 @@ class MachinePressingController extends Controller
             'created_by'            => $request->created_by
         ]);
 
-        if ($this->machine == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        if ($this->machine == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): JsonResponse
     {
         $validator = Validator::make(
             $request->all(),
@@ -196,7 +200,7 @@ class MachinePressingController extends Controller
             ]
         );
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -224,13 +228,14 @@ class MachinePressingController extends Controller
 
             if ($this->machine == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 400);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -268,11 +273,10 @@ class MachinePressingController extends Controller
                 }
             }
 
-            if ($this->machine == 0) {
-                return response()->json(['status' => 'error', 'message' => $this->machine], 404);
-            }
+            if ($this->machine == 0)
+                return ResponseController::json(status: "error", message: $this->machine, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->machine]);
+            return ResponseController::json(status: "ok", message: $this->machine, code: 200);
         }
     }
 }

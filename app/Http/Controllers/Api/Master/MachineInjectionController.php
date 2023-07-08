@@ -213,7 +213,7 @@ class MachineInjectionController extends Controller
             'type' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $this->machine = DB::table('precise.machine_injection')
@@ -229,7 +229,7 @@ class MachineInjectionController extends Controller
                 ]);
 
                 if ($validator->fails()) {
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
                 } else {
                     $this->machine = DB::table('precise.machine_injection')
                         ->where('line_code', $code)
