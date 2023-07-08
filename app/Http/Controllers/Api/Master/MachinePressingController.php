@@ -239,7 +239,7 @@ class MachinePressingController extends Controller
         }
     }
 
-    public function check(Request $request)
+    public function check(Request $request): JsonResponse
     {
         $type   = $request->get('type');
         $validator = Validator::make($request->all(), [
