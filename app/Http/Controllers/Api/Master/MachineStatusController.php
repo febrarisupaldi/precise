@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\QueryController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class MachineStatusController extends Controller
@@ -27,7 +28,10 @@ class MachineStatusController extends Controller
             )
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->machineStatus], 200);
+        if (count($this->machineStatus) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->machineStatus, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -57,7 +61,7 @@ class MachineStatusController extends Controller
             'created_by'    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->machineStatus = DB::table('precise.machine_status')
             ->insert([
@@ -65,10 +69,10 @@ class MachineStatusController extends Controller
                 'status_description'    => $request->desc,
                 'created_by'            => $request->created_by
             ]);
-        if ($this->machineStatus == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        if ($this->machineStatus == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -80,7 +84,7 @@ class MachineStatusController extends Controller
             'reason'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -95,14 +99,15 @@ class MachineStatusController extends Controller
                 ]);
 
             if ($this->machineStatus == 0) {
-                DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -123,11 +128,10 @@ class MachineStatusController extends Controller
                     ->count();
             }
 
-            if ($this->machineStatus == 0) {
-                return response()->json(['status' => 'error', 'message' => $this->machineStatus], 404);
-            }
+            if ($this->machineStatus == 0)
+                return ResponseController::json(status: "error", message: $this->machineStatus, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->machineStatus], 200);
+            return ResponseController::json(status: "ok", message: $this->machineStatus, code: 200);
         }
     }
 }

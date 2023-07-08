@@ -247,7 +247,7 @@ class MachinePressingController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $value  = $request->get('value');
@@ -264,7 +264,7 @@ class MachinePressingController extends Controller
                 ]);
 
                 if ($validator->fails()) {
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
                 } else {
                     $this->machine = DB::table('precise.machine_pressing')
                         ->where('line_code', $code)
