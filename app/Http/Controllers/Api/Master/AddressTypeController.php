@@ -81,10 +81,10 @@ class AddressTypeController extends Controller
                     'created_by'                => $request->created_by
                 ]);
 
-            if ($this->address == 0) {
-                return ResponseController::json(status: "error", message: "error insert data", code: 500);
-            }
-            return ResponseController::json(status: "ok", message: "success insert data", code: 200);
+            if ($this->address == 0)
+                return ResponseController::json(status: "error", message: "error input data", code: 500);
+
+            return ResponseController::json(status: "ok", message: "success input data", code: 200);
         } catch (\Exception $e) {
             return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
