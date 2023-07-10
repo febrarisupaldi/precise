@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Master;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,10 +29,13 @@ class ProductionProcessTypeController extends Controller
             ->join("precise.workcenter as wc", "pt.workcenter_id", "=", "wc.workcenter_id")
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->production], 200);
+        if (count($this->production) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->production, code: 200);
     }
 
-    public function showByProductionType($id)
+    public function showByProductionType($id): JsonResponse
     {
         $this->production = DB::table("precise.production_process_type as ppt")
             ->where("w.production_type", $id)
@@ -51,7 +55,8 @@ class ProductionProcessTypeController extends Controller
             ->get();
 
         if (count($this->production) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 200);
-        return response()->json(["status" => "ok", "data" => $this->production], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->production, code: 200);
     }
 }
