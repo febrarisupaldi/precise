@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,10 @@ class MenuController extends Controller
             ->leftJoin('precise.menu_category as c', 'm.menu_category_id', '=', 'c.menu_category_id')
             ->get();
 
-        return response()->json(['status' => 'ok', 'data' => $this->menu], 200);
+        if (count($this->menu) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->menu, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -61,7 +65,7 @@ class MenuController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->menu = DB::table('precise.menu')
             ->insert([
@@ -71,10 +75,10 @@ class MenuController extends Controller
                 'created_by'        => $request->created_by
             ]);
 
-        if ($this->menu == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        if ($this->menu == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -89,7 +93,7 @@ class MenuController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -106,13 +110,14 @@ class MenuController extends Controller
 
             if ($this->menu == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -124,7 +129,7 @@ class MenuController extends Controller
             'deleted_by' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -134,13 +139,14 @@ class MenuController extends Controller
                 ->delete();
 
             if ($this->menu == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
-
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -153,7 +159,7 @@ class MenuController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "name") {
                 $this->menu = DB::table('precise.menu')
@@ -161,10 +167,9 @@ class MenuController extends Controller
                     ->count();
             }
 
-            if ($this->menu == 0) {
-                return response()->json(['status' => 'error', 'message' => $this->menu], 404);
-            }
-            return response()->json(['status' => 'ok', 'message' => $this->menu], 200);
+            if ($this->menu == 0) return ResponseController::json(status: "error", message: $this->menu, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->menu, code: 200);
         }
     }
 }

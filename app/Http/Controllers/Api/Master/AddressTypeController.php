@@ -143,10 +143,9 @@ class AddressTypeController extends Controller
             if ($this->address == 0) {
                 DB::rollBack();
                 return ResponseController::json(status: "error", message: "failed delete data", code: 500);
-            } else {
-                DB::commit();
-                return ResponseController::json(status: "ok", message: "success delete data", code: 204);
             }
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
             return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
