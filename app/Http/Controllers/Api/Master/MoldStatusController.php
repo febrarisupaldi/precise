@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\QueryController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class MoldStatusController extends Controller
@@ -27,7 +28,9 @@ class MoldStatusController extends Controller
             )
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->moldStatus], 200);
+        if (count($this->moldStatus) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->moldStatus, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -55,20 +58,18 @@ class MoldStatusController extends Controller
             'created_by'    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->moldStatus = DB::table('precise.mold_status')
-                ->insert([
-                    'status_code'           => $request->status_code,
-                    'status_description'    => $request->desc,
-                    'created_by'            => $request->created_by
-                ]);
-            if ($this->moldStatus == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-            } else {
-                return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
-            }
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->moldStatus = DB::table('precise.mold_status')
+            ->insert([
+                'status_code'           => $request->status_code,
+                'status_description'    => $request->desc,
+                'created_by'            => $request->created_by
+            ]);
+        if ($this->moldStatus == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -76,35 +77,34 @@ class MoldStatusController extends Controller
         $validator = Validator::make($request->all(), [
             'status_code'   => 'required',
             'desc'          => 'nullable',
-            'is_active'     => 'boolean',
+            'is_active'     => 'required|boolean',
             'updated_by'    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update");
-                $this->moldStatus = DB::table('precise.mold_status')
-                    ->where('status_code', $request->status_code)
-                    ->update([
-                        'status_code'           => $request->status_code,
-                        'status_description'    => $request->desc,
-                        'is_active'             => $request->is_active,
-                        'updated_by'            => $request->updated_by
-                    ]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update");
+            $this->moldStatus = DB::table('precise.mold_status')
+                ->where('status_code', $request->status_code)
+                ->update([
+                    'status_code'           => $request->status_code,
+                    'status_description'    => $request->desc,
+                    'is_active'             => $request->is_active,
+                    'updated_by'            => $request->updated_by
+                ]);
 
-                if ($this->moldStatus == 0) {
-                    DB::rollback();
-                    return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-                } else {
-                    DB::commit();
-                    return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
-                }
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            if ($this->moldStatus == 0) {
+                DB::rollback();
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -117,7 +117,7 @@ class MoldStatusController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $this->moldStatus = DB::table('precise.mold_status')
@@ -126,9 +126,9 @@ class MoldStatusController extends Controller
             }
 
             if ($this->moldStatus == 0)
-                return response()->json(['status' => 'error', 'message' => $this->moldStatus], 404);
+                return ResponseController::json(status: "error", message: $this->moldStatus, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->moldStatus], 200);
+            return ResponseController::json(status: "ok", message: $this->moldStatus, code: 200);
         }
     }
 }
