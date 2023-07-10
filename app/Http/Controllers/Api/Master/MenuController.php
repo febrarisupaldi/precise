@@ -167,7 +167,8 @@ class MenuController extends Controller
                     ->count();
             }
 
-            if ($this->menu == 0) return ResponseController::json(status: "error", message: $this->menu, code: 404);
+            if ($this->menu == 0)
+                return ResponseController::json(status: "error", message: $this->menu, code: 404);
 
             return ResponseController::json(status: "ok", message: $this->menu, code: 200);
         }

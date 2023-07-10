@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class MoldInjectionController extends Controller
@@ -60,7 +61,9 @@ class MoldInjectionController extends Controller
             ->leftJoin("precise.cooling_method as cm", "hd.cooling_method_id", "=", "cm.cooling_method_id")
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->mold], 200);
+        if (count($this->mold) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->mold, code: 200);
     }
 
     public function detail(): JsonResponse
@@ -119,7 +122,9 @@ class MoldInjectionController extends Controller
             ->leftJoin("precise.cooling_method as cm", "hd.cooling_method_id", "=", "cm.cooling_method_id")
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->mold], 200);
+        if (count($this->mold) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->mold, code: 200);
     }
 
     public function showByNumber($number): JsonResponse
@@ -153,9 +158,8 @@ class MoldInjectionController extends Controller
             ->where('hd.mold_number', $number)
             ->get();
         if (count($this->mold) == 0)
-            return response()->json(["status" => "error", "message" => "not found"], 404);
-
-        return response()->json(["status" => "ok", "data" => $this->mold], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->mold, code: 200);
     }
 
     public function create(Request $request): JsonResponse
@@ -187,7 +191,7 @@ class MoldInjectionController extends Controller
             'detail'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             DB::beginTransaction();
@@ -229,7 +233,7 @@ class MoldInjectionController extends Controller
 
                 if ($validator->fails()) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
                 } else {
                     $id_dt = DB::table('precise.mold_injection_dt')
                         ->insertGetId([
@@ -250,7 +254,7 @@ class MoldInjectionController extends Controller
 
                         if ($validator->fails()) {
                             DB::rollBack();
-                            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+                            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
                         } else {
                             $detail = [
                                 'mold_injection_dt_id'          => $id_dt,
@@ -273,11 +277,15 @@ class MoldInjectionController extends Controller
                 ->select('mold_number')
                 ->first();
 
+            if (empty($trans)) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "failed input data", code: 500);
+            }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => $trans], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }
