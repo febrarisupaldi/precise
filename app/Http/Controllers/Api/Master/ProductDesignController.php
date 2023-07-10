@@ -199,12 +199,12 @@ class ProductDesignController extends Controller
             return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
-                $this->productDesign = DB::table('product_design')
+                $this->productDesign = DB::table('precise.product_design')
                     ->where([
                         'design_code' => $value
                     ])->count();
             } else if ($type == "name") {
-                $this->productDesign = DB::table('product_design')
+                $this->productDesign = DB::table('precise.product_design')
                     ->where([
                         'design_name' => $value
                     ])->count();
