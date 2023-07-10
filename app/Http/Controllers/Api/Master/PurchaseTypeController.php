@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Master;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,9 @@ class PurchaseTypeController extends Controller
             )
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->purchaseType], 200);
+        if (count($this->purchaseType) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseType, code: 200);
     }
 }

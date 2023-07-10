@@ -505,7 +505,7 @@ Route::group(
                 Route::get('purchase-type', 'Api\Master\PurchaseTypeController@index');
 
                 //Reject
-                Route::get('reject', 'Api\Master\RejectController@index');
+                Route::get('reject/workcenter/{id}', 'Api\Master\RejectController@getByWorkcenter');
                 Route::get('reject/check', 'Api\Master\RejectController@check');
                 Route::get('reject/{id}', 'Api\Master\RejectController@show');
                 Route::post('reject', 'Api\Master\RejectController@create');
