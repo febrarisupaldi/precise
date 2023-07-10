@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\QueryController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProductGroupController extends Controller
@@ -42,7 +43,10 @@ class ProductGroupController extends Controller
             ->leftJoin('precise.coa as udc', 'pg.unbilled_delivery_coa_id', '=', 'udc.coa_id')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->productGroup], 200);
+        if (count($this->productGroup) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productGroup, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -107,7 +111,7 @@ class ProductGroupController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->productGroup = DB::table('precise.product_group')
             ->insert([
@@ -124,10 +128,10 @@ class ProductGroupController extends Controller
                 'created_by'                => $request->created_by
             ]);
 
-        if ($this->productGroup == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->productGroup == 0)
+            return ResponseController::json(status: "error", message: "error input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -150,7 +154,7 @@ class ProductGroupController extends Controller
 
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -173,13 +177,13 @@ class ProductGroupController extends Controller
 
             if ($this->productGroup == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -207,9 +211,9 @@ class ProductGroupController extends Controller
                     ])->count();
             }
             if ($this->productGroup == 0)
-                return response()->json(['status' => 'ok', 'message' => $this->productGroup], 404);
+                return ResponseController::json(status: "error", message: $this->productGroup, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->productGroup], 200);
+            return ResponseController::json(status: "ok", message: $this->productGroup, code: 200);
         }
     }
 }
