@@ -367,11 +367,6 @@ class MoldPressingController extends Controller
                     'updated_by'        => $data['updated_by']
                 ]);
 
-            if ($header < 1) {
-                DB::rollBack();
-                return ResponseController::json(status: "error", message: "failed update data",  code: 500);
-            }
-
             if ($data['inserted'] != null) {
                 foreach ($data['inserted'] as $ins) {
                     $validator = Validator::make($ins, [
