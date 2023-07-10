@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -15,81 +16,72 @@ class ProductController extends Controller
 
     public function index(): JsonResponse
     {
+        $this->product = DB::table('precise.product as p')
+            ->select(
+                'product_id',
+                'product_code',
+                'product_name',
+                'product_alias',
+                'p.product_group_id',
+                'pg.product_group_code',
+                'uom_code',
+                'product_barcode',
+                'product_serial_number',
+                'product_std_price',
+                'min_stock_level_week',
+                'max_stock_level_week',
+                'purchase_lead_time',
+                'moq',
+                'is_included_in_mrp_ml',
+                'is_included_in_mrp_pl',
+                'is_active',
+                'p.created_on',
+                'p.created_by',
+                'p.updated_on',
+                'p.updated_by'
+            )
+            ->leftJoin('precise.product_group as pg', 'p.product_group_id', '=', 'pg.product_group_id')
+            ->get();
+
+        if (count($this->product) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->product, code: 200);
+    }
+
+    public function showByProductGroup($id): JsonResponse
+    {
         try {
-            $this->product = DB::table('precise.product as p')
+            $id = explode("-", $id);
+            $this->product = DB::table('product as a')
                 ->select(
                     'product_id',
                     'product_code',
                     'product_name',
                     'product_alias',
-                    'p.product_group_id',
-                    'pg.product_group_code',
-                    'uom_code',
-                    'product_barcode',
-                    'product_serial_number',
-                    'product_std_price',
-                    'min_stock_level_week',
-                    'max_stock_level_week',
-                    'purchase_lead_time',
-                    'moq',
-                    'is_included_in_mrp_ml',
-                    'is_included_in_mrp_pl',
-                    'is_active',
-                    'p.created_on',
-                    'p.created_by',
-                    'p.updated_on',
-                    'p.updated_by'
-                )
-                ->leftJoin('precise.product_group as pg', 'p.product_group_id', '=', 'pg.product_group_id')
-                ->get();
-
-            return response()->json(["status" => "ok", "data" => $this->product], 200);
-        } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
-        }
-    }
-
-    public function showByProductGroup(Request $request): JsonResponse
-    {
-        try {
-            $pk = $request->get('id');
-            $validator = Validator::make($request->all(), [
-                'id'   => 'required'
-            ]);
-            if ($validator->fails()) {
-                return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-            } else {
-                $id = explode("-", $pk);
-                $this->product = DB::table('product as a')
-                    ->select(
-                        'product_id',
-                        'product_code',
-                        'product_name',
-                        'product_alias',
-                        DB::raw(
-                            "
+                    DB::raw(
+                        "
                                 concat(c.product_type_code, ' - ', c.product_type_name) as 'Tipe produk',
                                 concat(b.product_group_code, ' - ', b.product_group_name)  as 'Group produk'
                             "
-                        ),
-                        'uom_code',
-                        'a.created_on',
-                        'a.created_by',
-                        'a.updated_on',
-                        'a.updated_by'
-                    )->leftJoin('product_group as b', 'a.product_group_id', '=', 'b.product_group_id')
-                    ->leftJoin('product_type as c', 'b.product_type_id', '=', 'c.product_type_id')
-                    ->whereIn('b.product_group_id', $id)
-                    ->orderBy('a.product_code')
-                    ->get();
+                    ),
+                    'uom_code',
+                    'a.created_on',
+                    'a.created_by',
+                    'a.updated_on',
+                    'a.updated_by'
+                )->leftJoin('product_group as b', 'a.product_group_id', '=', 'b.product_group_id')
+                ->leftJoin('product_type as c', 'b.product_type_id', '=', 'c.product_type_id')
+                ->whereIn('b.product_group_id', $id)
+                ->orderBy('a.product_code')
+                ->get();
 
-                if (count($this->product) == 0)
-                    return response()->json(["status" => "error", "message" => "not found"], 404);
+            if (count($this->product) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-                return response()->json(["status" => "ok", "data" => $this->product], 200);
-            }
+            return ResponseController::json(status: "ok", data: $this->product, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -128,87 +120,73 @@ class ProductController extends Controller
         }
     }
 
-    public function showByProductType(Request $request): JsonResponse
+    public function showByProductType($id): JsonResponse
     {
         try {
-            $pk = $request->get('id');
-            $validator = Validator::make($request->all(), [
-                'id'   => 'required'
-            ]);
-            if ($validator->fails()) {
-                return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-            } else {
-                $id = explode("-", $pk);
-                $this->product = DB::table('precise.product as p')
-                    ->select(
-                        'p.product_id',
-                        'p.product_code',
-                        'p.product_name',
-                        'p.product_alias',
-                        'pg.product_group_id',
-                        'pg.product_group_code',
-                        'pg.product_group_name',
-                        'p.product_barcode',
-                        'p.product_serial_number',
-                        'p.uom_code',
-                        'p.product_std_price',
-                        'p.is_active',
-                        'p.created_on',
-                        'p.created_by',
-                        'p.updated_on',
-                        'p.updated_by'
-                    )
-                    ->leftJoin('product_group as pg', 'p.product_group_id', '=', 'pg.product_group_id')
-                    ->whereIn('pg.product_type_id', $id)
-                    ->orderBy('p.product_code')
-                    ->get();
-                return response()->json(['status' => 'ok', 'data' => $this->product], 200);
-            }
+            $id = explode("-", $$id);
+            $this->product = DB::table('precise.product as p')
+                ->select(
+                    'p.product_id',
+                    'p.product_code',
+                    'p.product_name',
+                    'p.product_alias',
+                    'pg.product_group_id',
+                    'pg.product_group_code',
+                    'pg.product_group_name',
+                    'p.product_barcode',
+                    'p.product_serial_number',
+                    'p.uom_code',
+                    'p.product_std_price',
+                    'p.is_active',
+                    'p.created_on',
+                    'p.created_by',
+                    'p.updated_on',
+                    'p.updated_by'
+                )
+                ->leftJoin('product_group as pg', 'p.product_group_id', '=', 'pg.product_group_id')
+                ->whereIn('pg.product_type_id', $id)
+                ->orderBy('p.product_code')
+                ->get();
+            if (count($this->product) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->product, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function showByProductTypeWithGroup(Request $request)
+    public function showByProductTypeWithGroup($id): JsonResponse
     {
         try {
-            $pk = $request->get('id');
-            $validator = Validator::make($request->all(), [
-                'id'   => 'required'
-            ]);
-            if ($validator->fails()) {
-                return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-            } else {
-                $id = explode("-", $pk);
-                $this->product = DB::table('precise.product as p')
-                    ->select(
-                        'p.product_id',
-                        'p.product_code',
-                        'p.product_name',
-                        'p.uom_code',
-                        'pt.product_type_code',
-                        'pt.product_type_name'
-                    )
-                    ->leftJoin('product_group as pg', 'p.product_group_id', '=', 'pg.product_group_id')
-                    ->leftJoin('product_type as pt', 'pg.product_type_id', '=', 'pt.product_type_id')
-                    ->whereIn('pg.product_type_id', $id)
-                    ->whereNotIn('pg.product_group_id', [83, 84])
-                    ->orWhere('pg.product_group_id', [77, 78, 85])
-                    ->orderBy('p.product_code')
-                    ->get();
+            $id = explode("-", $id);
+            $this->product = DB::table('precise.product as p')
+                ->select(
+                    'p.product_id',
+                    'p.product_code',
+                    'p.product_name',
+                    'p.uom_code',
+                    'pt.product_type_code',
+                    'pt.product_type_name'
+                )
+                ->leftJoin('product_group as pg', 'p.product_group_id', '=', 'pg.product_group_id')
+                ->leftJoin('product_type as pt', 'pg.product_type_id', '=', 'pt.product_type_id')
+                ->whereIn('pg.product_type_id', $id)
+                ->whereNotIn('pg.product_group_id', [83, 84])
+                ->orWhere('pg.product_group_id', [77, 78, 85])
+                ->orderBy('p.product_code')
+                ->get();
 
-                if (!$this->product) {
-                    return response()->json(['status' => '404'], 404);
-                }
+            if (count($this->product) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-                return response()->json(['status' => 'ok', 'data' => $this->product], 200);
-            }
+            return ResponseController::json(status: "ok", data: $this->product, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function showByCustomer($id)
+    public function showByCustomer($id): JsonResponse
     {
         try {
             $customer = DB::table('precise.customer')
@@ -252,47 +230,41 @@ class ProductController extends Controller
                 ->mergeBindings($customer)
                 ->get();
 
-            if (!$this->product) {
-                return response()->json(['status' => '404'], 404);
-            }
+            if (count($this->product) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-            return response()->json(['status' => 'ok', 'data' => $this->product], 200);
+            return ResponseController::json(status: "ok", data: $this->product, code: 200);
         } catch (\Exception $e) {
             return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
         }
     }
 
-    public function showByWorkcenter(Request $request)
+    public function showByWorkcenter($id)
     {
         try {
-            $id = $request->get('id');
-            $validator = Validator::make($request->all(), [
-                'id'   => 'required'
-            ]);
-            if ($validator->fails()) {
-                return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-            } else {
-                $value = explode("-", $id);
-                $this->product = DB::table('precise.product_workcenter as pw')
-                    ->whereIn('pw.workcenter_id', $value)
-                    ->select(
-                        'pw.product_workcenter_id',
-                        'p.product_id',
-                        'p.product_code',
-                        'p.product_name',
-                        'p.uom_code',
-                        'pw.workcenter_id',
-                        'w.workcenter_code',
-                        'w.workcenter_name'
-                    )
-                    ->leftJoin('precise.product as p', 'pw.product_id', '=', 'p.product_id')
-                    ->leftJoin('precise.workcenter as w', 'pw.workcenter_id', '=', 'w.workcenter_id')
-                    ->get();
+            $value = explode("-", $id);
+            $this->product = DB::table('precise.product_workcenter as pw')
+                ->whereIn('pw.workcenter_id', $value)
+                ->select(
+                    'pw.product_workcenter_id',
+                    'p.product_id',
+                    'p.product_code',
+                    'p.product_name',
+                    'p.uom_code',
+                    'pw.workcenter_id',
+                    'w.workcenter_code',
+                    'w.workcenter_name'
+                )
+                ->leftJoin('precise.product as p', 'pw.product_id', '=', 'p.product_id')
+                ->leftJoin('precise.workcenter as w', 'pw.workcenter_id', '=', 'w.workcenter_id')
+                ->get();
 
-                return response()->json(["status" => "ok", "data" => $this->product], 200);
-            }
+            if (count($this->product) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->product, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -309,7 +281,7 @@ class ProductController extends Controller
             "product_type"  => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             $warehouses = explode("-", $warehouse);
@@ -336,15 +308,15 @@ class ProductController extends Controller
                 ->get();
 
             if (count($this->product) == 0)
-                return response()->json(["status" => "error", "message" => "not found"], 404);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-            return response()->json(["status" => "ok", "message" => "ok", "data" => $this->product], 200);
+            return ResponseController::json(status: "ok", data: $this->product, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $data = $request->json()->all();
         $validator = Validator::make($data, [
@@ -360,73 +332,72 @@ class ProductController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-        } else {
-            DB::beginTransaction();
-            try {
-                $id = DB::table('precise.product')
-                    ->insertGetId([
-                        'product_code'          => $data['product_code'],
-                        'product_name'          => $data['product_name'],
-                        'product_alias'         => $data['product_alias'],
-                        'product_group_id'      => $data['product_group_id'],
-                        'product_barcode'       => $data['product_barcode'],
-                        'product_serial_number' => $data['product_serial_number'],
-                        'uom_code'              => $data['uom_code'],
-                        'product_std_price'     => $data['product_std_price'],
-                        'created_by'            => $data['created_by']
-                    ]);
-
-                if (empty($id)) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-                }
-
-                $dictionary = $data["product_dictionary"][0];
-                $validator = Validator::make($dictionary, [
-                    'item_id'           => 'required|exists:product_item,item_id',
-                    'design_id'         => 'required|exists:product_design,design_id',
-                    'variant_id'        => 'required|exists:product_variant,product_variant_id',
-                    'process_type_id'   => 'required|exists:production_process_type,process_type_id',
-                    'color_id'          => 'required|exists:color_gradation,color_id',
-                    'brand_id'          => 'required|exists:product_brand,product_brand_id',
-                    'packing_qty'       => 'required|numeric',
-                    'created_by'        => 'required'
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            $id = DB::table('precise.product')
+                ->insertGetId([
+                    'product_code'          => $data['product_code'],
+                    'product_name'          => $data['product_name'],
+                    'product_alias'         => $data['product_alias'],
+                    'product_group_id'      => $data['product_group_id'],
+                    'product_barcode'       => $data['product_barcode'],
+                    'product_serial_number' => $data['product_serial_number'],
+                    'uom_code'              => $data['uom_code'],
+                    'product_std_price'     => $data['product_std_price'],
+                    'created_by'            => $data['created_by']
                 ]);
 
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-                }
-
-                $this->product = DB::table("precise.product_dictionary")
-                    ->insert([
-                        "product_id"        => $id,
-                        "item_id"           => $dictionary["item_id"],
-                        "design_id"         => $dictionary["design_id"],
-                        "variant_id"        => $dictionary["variant_id"],
-                        "process_type_id"   => $dictionary["process_type_id"],
-                        "color_id"          => $dictionary["color_id"],
-                        "brand_id"          => $dictionary["brand_id"],
-                        "packing_qty"       => $dictionary["packing_qty"],
-                        "created_by"        => $dictionary["created_by"]
-                    ]);
-
-                if ($this->product == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-                } else {
-                    DB::commit();
-                    return response()->json(['status' => 'ok', 'message' => 'success insert'], 200);
-                }
-            } catch (\Exception $e) {
+            if ($id < 1) {
                 DB::rollBack();
-                return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "error input data", code: 500);
             }
+
+            $dictionary = $data["product_dictionary"][0];
+            $validator = Validator::make($dictionary, [
+                'item_id'           => 'required|exists:product_item,item_id',
+                'design_id'         => 'required|exists:product_design,design_id',
+                'variant_id'        => 'required|exists:product_variant,product_variant_id',
+                'process_type_id'   => 'required|exists:production_process_type,process_type_id',
+                'color_id'          => 'required|exists:color_gradation,color_id',
+                'brand_id'          => 'required|exists:product_brand,product_brand_id',
+                'packing_qty'       => 'required|numeric',
+                'created_by'        => 'required'
+            ]);
+
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+            }
+
+            $this->product = DB::table("precise.product_dictionary")
+                ->insert([
+                    "product_id"        => $id,
+                    "item_id"           => $dictionary["item_id"],
+                    "design_id"         => $dictionary["design_id"],
+                    "variant_id"        => $dictionary["variant_id"],
+                    "process_type_id"   => $dictionary["process_type_id"],
+                    "color_id"          => $dictionary["color_id"],
+                    "brand_id"          => $dictionary["brand_id"],
+                    "packing_qty"       => $dictionary["packing_qty"],
+                    "created_by"        => $dictionary["created_by"]
+                ]);
+
+            if ($this->product == 0) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "error input data", code: 500);
+            }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success input data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function update(Request $request)
+    public function update(Request $request): JsonResponse
     {
         $data = $request->json()->all();
         $validator = Validator::make($data, [
@@ -443,95 +414,92 @@ class ProductController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update", $data);
-                $this->product = DB::table('precise.product')
-                    ->where('product_id', $data['product_id'])
-                    ->update([
-                        'product_code'          => $data['product_code'],
-                        'product_name'          => $data['product_name'],
-                        'product_alias'         => $data['product_alias'],
-                        'product_group_id'      => $data['product_group_id'],
-                        'product_barcode'       => $data['product_barcode'],
-                        'product_serial_number' => $data['product_serial_number'],
-                        'uom_code'              => $data['uom_code'],
-                        'product_std_price'     => $data['product_std_price'],
-                        'updated_by'            => $data['updated_by']
-                    ]);
-
-                $dictionary = $data["product_dictionary"][0];
-
-                $validator = Validator::make($dictionary, [
-                    'item_id'           => 'required|exists:product_item,item_id',
-                    'design_id'         => 'required|exists:product_design,design_id',
-                    'variant_id'        => 'required|exists:product_variant,product_variant_id',
-                    'process_type_id'   => 'required|exists:production_process_type,process_type_id',
-                    'color_id'          => 'required|exists:color_gradation,color_id',
-                    'brand_id'          => 'required|exists:product_brand,product_brand_id',
-                    'packing_qty'       => 'required|numeric',
-                    'updated_by'        => 'required'
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update", $data);
+            $this->product = DB::table('precise.product')
+                ->where('product_id', $data['product_id'])
+                ->update([
+                    'product_code'          => $data['product_code'],
+                    'product_name'          => $data['product_name'],
+                    'product_alias'         => $data['product_alias'],
+                    'product_group_id'      => $data['product_group_id'],
+                    'product_barcode'       => $data['product_barcode'],
+                    'product_serial_number' => $data['product_serial_number'],
+                    'uom_code'              => $data['uom_code'],
+                    'product_std_price'     => $data['product_std_price'],
+                    'updated_by'            => $data['updated_by']
                 ]);
 
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-                }
+            $dictionary = $data["product_dictionary"][0];
 
-                $this->product = DB::table("precise.product_dictionary")
-                    ->where("product_id", $dictionary["product_id"])
-                    ->update([
-                        "item_id"           => $dictionary["item_id"],
-                        "design_id"         => $dictionary["design_id"],
-                        "variant_id"        => $dictionary["variant_id"],
-                        "process_type_id"   => $dictionary["brand_id"],
-                        "color_id"          => $dictionary["color_id"],
-                        "packing_qty"       => $dictionary["packing_qty"],
-                        "created_by"        => $dictionary["created_by"]
-                    ]);
+            $validator = Validator::make($dictionary, [
+                'item_id'           => 'required|exists:product_item,item_id',
+                'design_id'         => 'required|exists:product_design,design_id',
+                'variant_id'        => 'required|exists:product_variant,product_variant_id',
+                'process_type_id'   => 'required|exists:production_process_type,process_type_id',
+                'color_id'          => 'required|exists:color_gradation,color_id',
+                'brand_id'          => 'required|exists:product_brand,product_brand_id',
+                'packing_qty'       => 'required|numeric',
+                'updated_by'        => 'required'
+            ]);
 
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'product has been updated'], 200);
-            } catch (\Exception $e) {
+            if ($validator->fails()) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
             }
+
+            $this->product = DB::table("precise.product_dictionary")
+                ->where("product_id", $dictionary["product_id"])
+                ->update([
+                    "item_id"           => $dictionary["item_id"],
+                    "design_id"         => $dictionary["design_id"],
+                    "variant_id"        => $dictionary["variant_id"],
+                    "process_type_id"   => $dictionary["brand_id"],
+                    "color_id"          => $dictionary["color_id"],
+                    "packing_qty"       => $dictionary["packing_qty"],
+                    "created_by"        => $dictionary["created_by"]
+                ]);
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function destroy(Request $request)
+    public function destroy(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'product_id'    =>  'required|exists:product,product_id',
             'reason'        =>  'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "delete");
-                $this->product = DB::table('precise.product')
-                    ->where('product_id', $request->product_id)
-                    ->delete();
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "delete");
+            $this->product = DB::table('precise.product')
+                ->where('product_id', $request->product_id)
+                ->delete();
 
-                if ($this->product == 0) {
-                    DB::rollback();
-                    return response()->json(['status' => 'error', 'message' => 'error'], 500);
-                } else {
-                    DB::commit();
-                    return response()->json(['status' => 'ok', 'message' => 'success'], 200);
-                }
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            if ($this->product == 0) {
+                DB::rollback();
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
-    public function check(Request $request)
+    public function check(Request $request): JsonResponse
     {
         $type   = $request->get('type');
         $value  = $request->get('value');
@@ -540,7 +508,7 @@ class ProductController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $this->product = DB::table('precise.product')
@@ -548,7 +516,10 @@ class ProductController extends Controller
                     ->count();
             }
 
-            return response()->json(['status' => 'ok', 'message' => $this->product], 200);
+            if ($this->product == 0)
+                return ResponseController::json(status: "error", message: $this->product, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->product, code: 200);
         }
     }
 }

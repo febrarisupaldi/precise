@@ -398,9 +398,9 @@ Route::group(
                 //Product
                 Route::get('product', 'Api\Master\ProductController@index');
                 Route::get('product/check', 'Api\Master\ProductController@check');
-                Route::get('product/product-group', 'Api\Master\ProductController@showByProductGroup');
-                Route::get('product/product-type', 'Api\Master\ProductController@showByProductType');
-                Route::get('product/product-type/group', 'Api\Master\ProductController@showByProductTypeWithGroup');
+                Route::get('product/product-group/{id}', 'Api\Master\ProductController@showByProductGroup');
+                Route::get('product/product-type/{id}', 'Api\Master\ProductController@showByProductType');
+                Route::get('product/product-type/group/{id}', 'Api\Master\ProductController@showByProductTypeWithGroup');
                 Route::get('product/warehouse', 'Api\Master\ProductController@showByWarehouse');
                 Route::get('product/workcenter', 'Api\Master\ProductController@showByWorkcenter');
                 Route::get('product/customer/{id}', 'Api\Master\ProductController@showByCustomer');
