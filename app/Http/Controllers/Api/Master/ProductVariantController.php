@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,53 +12,48 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProductVariantController extends Controller
 {
-    private $variant;
+    private $productVariant;
     public function index(): JsonResponse
     {
-        try {
-            $this->variant = DB::table('precise.product_variant')
-                ->select(
-                    'product_variant_id',
-                    'product_variant_code',
-                    'product_variant_name',
-                    'product_variant_description',
-                    'is_active',
-                    'created_on',
-                    'created_by',
-                    'updated_on',
-                    'updated_by'
-                )
-                ->get();
-            return response()->json(["status" => "ok", "data" => $this->variant], 200);
-        } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage(), "data" => ""], 500);
-        }
+        $this->productVariant = DB::table('precise.product_variant')
+            ->select(
+                'product_variant_id',
+                'product_variant_code',
+                'product_variant_name',
+                'product_variant_description',
+                'is_active',
+                'created_on',
+                'created_by',
+                'updated_on',
+                'updated_by'
+            )
+            ->get();
+        if (count($this->productVariant) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productVariant, code: 200);
     }
 
     public function show($id): JsonResponse
     {
-        try {
-            $this->variant = DB::table('precise.product_variant')
-                ->where('product_variant_id', $id)
-                ->select(
-                    'product_variant_id',
-                    'product_variant_code',
-                    'product_variant_name',
-                    'product_variant_description',
-                    'is_active',
-                    'created_on',
-                    'created_by',
-                    'updated_on',
-                    'updated_by'
-                )
-                ->first();
+        $this->productVariant = DB::table('precise.product_variant')
+            ->where('product_variant_id', $id)
+            ->select(
+                'product_variant_id',
+                'product_variant_code',
+                'product_variant_name',
+                'product_variant_description',
+                'is_active',
+                'created_on',
+                'created_by',
+                'updated_on',
+                'updated_by'
+            )
+            ->first();
 
-            if (empty($this->variant))
-                return response()->json('not found', 404);
-            return response()->json($this->variant, 200);
-        } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
-        }
+        if (empty($this->productVariant))
+            return response()->json('not found', 404);
+        return response()->json($this->productVariant, 200);
     }
 
     public function create(Request $request): JsonResponse
@@ -70,26 +66,21 @@ class ProductVariantController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            try {
-                $this->variant = DB::table('precise.product_variant')
-                    ->insert([
-                        'product_variant_code'          => $request->product_variant_code,
-                        'product_variant_name'          => $request->product_variant_name,
-                        'product_variant_description'   => $request->desc,
-                        'created_by'                    => $request->created_by
-                    ]);
-
-                if ($this->variant == 0) {
-                    return response()->json(['status' => 'error', 'message' => 'error input data'], 500);
-                }
-
-                return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
-            } catch (\Exception $e) {
-                return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
-            }
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+
+        $this->productVariant = DB::table('precise.product_variant')
+            ->insert([
+                'product_variant_code'          => $request->product_variant_code,
+                'product_variant_name'          => $request->product_variant_name,
+                'product_variant_description'   => $request->desc,
+                'created_by'                    => $request->created_by
+            ]);
+
+        if ($this->productVariant == 0)
+            return ResponseController::json(status: "error", message: "error input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -103,13 +94,13 @@ class ProductVariantController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
         try {
             DBController::reason($request, "update");
-            $this->variant = DB::table('precise.product_variant')
+            $this->productVariant = DB::table('precise.product_variant')
                 ->where('product_variant_id', $request->product_variant_id)
                 ->update([
                     'product_variant_code'          => $request->product_variant_code,
@@ -118,16 +109,15 @@ class ProductVariantController extends Controller
                     'updated_by'                    => $request->updated_by
                 ]);
 
-            if ($this->variant == 0) {
+            if ($this->productVariant == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'error update data'], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
-
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -140,17 +130,22 @@ class ProductVariantController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
-                $this->variant = DB::table('precise.product_varian')->where('product_variant_code', $value)->count();
+                $this->productVariant = DB::table('precise.product_varian')
+                    ->where('product_variant_code', $value)
+                    ->count();
             } else if ($type == "name") {
-                $this->variant = DB::table('precise.product_varian')->where('product_variant_name', $value)->count();
+                $this->productVariant = DB::table('precise.product_varian')
+                    ->where('product_variant_name', $value)
+                    ->count();
             }
 
-            if ($this->variant == 0)
-                return response()->json(['status' => 'error', 'message' => $this->variant], 500);
-            return response()->json(['status' => 'ok', 'message' => $this->variant], 200);
+            if ($this->productVariant == 0)
+                return ResponseController::json(status: "error", message: $this->productVariant, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->productVariant, code: 200);
         }
     }
 }
