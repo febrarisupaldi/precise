@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Master;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -23,6 +24,9 @@ class ProductLicenseTypeController extends Controller
                 'updated_by'
             )
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->productLicenseType], 200);
+        if (count($this->productLicenseType) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productLicenseType, code: 200);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -26,7 +27,10 @@ class ProductSeriesController extends Controller
                 'updated_by'
             )->get();
 
-        return response()->json(["status" => "ok", "data" => $this->productSeries], 200);
+        if (count($this->productSeries) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productSeries, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -54,7 +58,7 @@ class ProductSeriesController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->productSeries = DB::table('precise.product_series')
             ->insert([
@@ -63,11 +67,10 @@ class ProductSeriesController extends Controller
                 'created_by'            => $request->created_by
             ]);
 
-        if ($this->productSeries == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
+        if ($this->productSeries == 0)
+            return ResponseController::json(status: "error", message: "error input data", code: 500);
 
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -81,7 +84,7 @@ class ProductSeriesController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -97,17 +100,17 @@ class ProductSeriesController extends Controller
 
             if ($this->productSeries == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => "success update data"], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function destroy(Request $request)
+    public function destroy(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'series_id'     => 'required|exists:product_series,series_id',
@@ -116,7 +119,7 @@ class ProductSeriesController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -130,7 +133,6 @@ class ProductSeriesController extends Controller
                 DB::rollback();
                 return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
             }
-
             DB::commit();
             return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
         } catch (\Exception $e) {
