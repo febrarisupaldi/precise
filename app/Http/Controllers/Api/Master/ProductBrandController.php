@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -29,7 +30,10 @@ class ProductBrandController extends Controller
                 'updated_on',
                 'updated_by'
             )->get();
-        return response()->json(['status' => 'ok', 'data' => $this->productBrand], 200);
+        if (count($this->productBrand) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productBrand, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -52,19 +56,19 @@ class ProductBrandController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->productBrand = DB::table('precise.product_brand')
-                ->insert([
-                    'product_brand_name'    => $request->product_brand_name,
-                    'created_by'            => $request->created_by
-                ]);
-
-            if ($this->productBrand == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-            }
-            return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+
+        $this->productBrand = DB::table('precise.product_brand')
+            ->insert([
+                'product_brand_name'    => $request->product_brand_name,
+                'created_by'            => $request->created_by
+            ]);
+
+        if ($this->productBrand == 0)
+            return ResponseController::json(status: "error", message: "error input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -78,7 +82,7 @@ class ProductBrandController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -93,13 +97,13 @@ class ProductBrandController extends Controller
 
             if ($this->productBrand == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -121,9 +125,9 @@ class ProductBrandController extends Controller
             }
 
             if ($this->productBrand == 0)
-                return response()->json(['status' => 'error', 'message' => $this->productBrand], 404);
+                return ResponseController::json(status: "error", message: $this->productBrand, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->productBrand], 200);
+            return ResponseController::json(status: "ok", message: $this->productBrand, code: 200);
         }
     }
 }
