@@ -134,7 +134,7 @@ class ProductSeriesController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 204);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
