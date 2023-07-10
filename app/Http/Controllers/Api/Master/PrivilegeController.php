@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Master;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -33,7 +34,9 @@ class PrivilegeController extends Controller
             ->leftJoin('menu as b', 'a.menu_id', '=', 'b.menu_id')
             ->leftJoin('employee as c', 'a.user_id', '=', 'c.employee_nik')
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->privilege], 200);
+        if (count($this->privilege) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->privilege, code: 200);
     }
 
     public function showMenuByUser($id): JsonResponse
@@ -70,9 +73,11 @@ class PrivilegeController extends Controller
             )
             ->leftJoin('precise.menu_category as b', 'a.menu_category_id', '=', 'b.menu_category_id')
             ->leftJoin(DB::raw("({$sql->toSql()})p"), 'a.menu_id', '=', 'p.menu_id')
-            ->toSql();
+            ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->privilege], 200);
+        if (count($this->privilege) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->privilege, code: 200);
     }
 
     public function showUserByMenu($id): JsonResponse
@@ -100,7 +105,9 @@ class PrivilegeController extends Controller
                 ->leftJoin('menu as m', 'p.menu_id', '=', 'm.menu_id')
                 ->where('p.menu_id', $id)
                 ->get();
-        return response()->json(["status" => "ok", "data" => $this->privilege], 200);
+        if (count($this->privilege) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->privilege, code: 200);
     }
 
     public function user(): JsonResponse
@@ -116,12 +123,16 @@ class PrivilegeController extends Controller
             )
             ->leftJoin('precise.employee as e', 'p.user_id', '=', 'e.employee_nik')
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->privilege], 200);
+
+        if (count($this->privilege) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->privilege, code: 200);
     }
 
     public function create(Request $request): JsonResponse
     {
         $data = $request->json()->all();
+        DB::beginTransaction();
         foreach ($data['data'] as $val) {
             $validator = Validator::make($val, [
                 "user_id"           => 'required|exists:users,user_id',
@@ -161,10 +172,10 @@ class PrivilegeController extends Controller
                 ['can_read', 'can_create', 'can_update', 'can_delete', 'can_print', 'can_double_print', 'can_approve', 'created_by']
             );
 
-        if ($this->privilege == 0)
-            return response()->json(["status" => "error", "message" => "failed insert data"], 500);
-        else
-            return response()->json(["status" => "ok", "message" => "success insert data"], 200);
+        if ($this->privilege < 1)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function copy(Request $request): JsonResponse
@@ -217,9 +228,9 @@ class PrivilegeController extends Controller
                     }
                 )->union($query)->get();
 
-            if (empty($this->privilege)) {
+            if (count($this->privilege) == 0) {
                 DB::rollBack();
-                return response()->json(["status" => "error", "message" => "error load data"], 500);
+                return ResponseController::json(status: "error", message: "failed load data", code: 500);
             }
             foreach ($this->privilege as $priv) {
                 $values[] = [
@@ -245,13 +256,13 @@ class PrivilegeController extends Controller
 
             if ($result == 0) {
                 DB::rollBack();
-                return response()->json(["status" => "error", "message" => "failed insert data"], 500);
-            } else {
-                DB::commit();
-                return response()->json(["status" => "ok", "message" => "success insert data"], 200);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }
