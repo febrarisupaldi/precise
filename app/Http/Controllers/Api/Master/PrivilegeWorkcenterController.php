@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -30,7 +31,9 @@ class PrivilegeWorkcenterController extends Controller
             ->leftJoin('employee as e', 'a.user_id', '=', 'e.employee_nik')
             ->leftJoin('workcenter as w', 'a.workcenter_id', '=', 'w.workcenter_id')
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->privilegeWC], 200);
+        if (count($this->privilegeWC) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+        return ResponseController::json(status: "ok", data: $this->privilegeWC, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -64,7 +67,7 @@ class PrivilegeWorkcenterController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->privilegeWC = DB::table('precise.privilege_workcenter')
             ->insert([
@@ -73,11 +76,9 @@ class PrivilegeWorkcenterController extends Controller
                 'created_by'    => $request->created_by
             ]);
 
-        if ($this->privilegeWC == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-        }
-
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        if ($this->privilegeWC == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -91,7 +92,7 @@ class PrivilegeWorkcenterController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -106,14 +107,14 @@ class PrivilegeWorkcenterController extends Controller
 
             if ($this->privilegeWC == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -124,7 +125,7 @@ class PrivilegeWorkcenterController extends Controller
             'reason'                    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             DBController::reason($request, "delete");
@@ -135,13 +136,13 @@ class PrivilegeWorkcenterController extends Controller
 
             if ($this->privilegeWC == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -152,7 +153,7 @@ class PrivilegeWorkcenterController extends Controller
             'workcenter_id' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             $this->privilegeWC = DB::table('precise.privilege_workcenter')
                 ->where([
@@ -162,9 +163,9 @@ class PrivilegeWorkcenterController extends Controller
                 ->count();
 
             if ($this->privilegeWC == 0)
-                return response()->json(['status' => 'error', 'message' => $this->privilegeWC], 500);
+                return ResponseController::json(status: "error", message: $this->privilegeWC, code: 404);
 
-            return response()->json(["status" => "ok", "message" => $this->privilegeWC], 200);
+            return ResponseController::json(status: "ok", message: $this->privilegeWC, code: 200);
         }
     }
 }

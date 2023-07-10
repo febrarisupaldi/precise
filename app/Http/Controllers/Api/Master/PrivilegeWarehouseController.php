@@ -156,7 +156,7 @@ class PrivilegeWarehouseController extends Controller
             'privilege_type'    => 'required',
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->privilegeWH = DB::table('precise.privilege_warehouse')
             ->where([
