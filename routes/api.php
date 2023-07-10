@@ -346,7 +346,7 @@ Route::group(
                 Route::get('mold-pressing/check', 'Api\Master\MoldPressingController@check');
                 Route::get('mold-pressing/cavity/code/{code}', 'Api\Master\MoldPressingController@showMoldCavityByCode');
                 Route::get('mold-pressing/cavity/number/{number}', 'Api\Master\MoldPressingController@showMoldCavityByNumber');
-                Route::get('mold-pressing/detail', 'Api\Master\MoldPressingController@full');
+                Route::get('mold-pressing/detail', 'Api\Master\MoldPressingController@detail');
                 Route::get('mold-pressing/number/{number}', 'Api\Master\MoldPressingController@showByNumber');
                 Route::get('mold-pressing/{id}', 'Api\Master\MoldPressingController@show');
                 Route::post('mold-pressing', 'Api\Master\MoldPressingController@create');

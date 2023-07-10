@@ -274,15 +274,14 @@ class MoldInjectionController extends Controller
 
             $trans = DB::table('precise.mold_injection_hd')
                 ->where('mold_injection_hd_id', $id_hd)
-                ->select('mold_number')
-                ->first();
+                ->value("mold_number");
 
             if (empty($trans)) {
                 DB::rollBack();
-                return ResponseController::json(status: "error", message: "failed input data", code: 500);
+                return ResponseController::json(status: "error", message: "failed input data",  code: 500);
             }
             DB::commit();
-            return ResponseController::json(status: "ok", message: "success update data", code: 200);
+            return ResponseController::json(status: "ok", message: "success input data", id: $trans, code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
             return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
