@@ -402,7 +402,7 @@ Route::group(
                 Route::get('product/product-type/{id}', 'Api\Master\ProductController@showByProductType');
                 Route::get('product/product-type/group/{id}', 'Api\Master\ProductController@showByProductTypeWithGroup');
                 Route::get('product/warehouse', 'Api\Master\ProductController@showByWarehouse');
-                Route::get('product/workcenter', 'Api\Master\ProductController@showByWorkcenter');
+                Route::get('product/workcenter/{id}', 'Api\Master\ProductController@showByWorkcenter');
                 Route::get('product/customer/{id}', 'Api\Master\ProductController@showByCustomer');
                 Route::get('product/{id}', 'Api\Master\ProductController@show');
                 Route::post('product', 'Api\Master\ProductController@create');
