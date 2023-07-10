@@ -245,9 +245,13 @@ class ProductItemController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
         } else {
             if ($type == "code") {
-                $this->productItem = DB::table('precise.product_item')->where('item_code', $value)->count();
+                $this->productItem = DB::table('precise.product_item')
+                    ->where('item_code', $value)
+                    ->count();
             } else if ($type == "alias") {
-                $this->productItem = DB::table('precise.product_item')->where('item_alias', $value)->count();
+                $this->productItem = DB::table('precise.product_item')
+                    ->where('item_alias', $value)
+                    ->count();
             }
             if ($this->productItem == 0)
                 return ResponseController::json(status: "error", message: $this->productItem, code: 404);

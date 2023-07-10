@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -25,7 +26,10 @@ class ProductTypeController extends Controller
                 'updated_by'
             )
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->productType], 200);
+        if (count($this->productType) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productType, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -52,7 +56,7 @@ class ProductTypeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->productType = DB::table('precise.product_type')
             ->insert([
@@ -61,10 +65,10 @@ class ProductTypeController extends Controller
                 'created_by'         => $request->created_by
             ]);
 
-        if ($this->productType == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->productType == 0)
+            return ResponseController::json(status: "error", message: "error input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -78,7 +82,7 @@ class ProductTypeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             DB::beginTransaction();
@@ -93,13 +97,13 @@ class ProductTypeController extends Controller
 
             if ($this->productType == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -117,19 +121,18 @@ class ProductTypeController extends Controller
         } else {
             if ($type == "code") {
                 $this->productType = DB::table('precise.product_type')
-                    ->where([
-                        'product_type_code' => $value
-                    ])->count();
+                    ->where('product_type_code', $value)
+                    ->count();
             } else if ($type == "name") {
                 $this->productType = DB::table('precise.product_type')
-                    ->where([
-                        'product_type_name' => $value
-                    ])->count();
+                    ->where('product_type_name', $value)
+                    ->count();
             }
 
             if ($this->productType == 0)
-                return response()->json(['status' => 'error', 'message' => $this->productType], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->productType], 200);
+                return ResponseController::json(status: "error", message: $this->productType, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->productType, code: 200);
         }
     }
 }
