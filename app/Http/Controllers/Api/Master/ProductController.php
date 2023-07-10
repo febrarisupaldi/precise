@@ -239,7 +239,7 @@ class ProductController extends Controller
         }
     }
 
-    public function showByWorkcenter($id)
+    public function showByWorkcenter($id): JsonResponse
     {
         try {
             $value = explode("-", $id);
@@ -268,7 +268,7 @@ class ProductController extends Controller
         }
     }
 
-    public function showByWarehouse(Request $request)
+    public function showByWarehouse(Request $request): JsonResponse
     {
         $warehouse = $request->get('warehouse');
         $product_type = $request->get('product_type');
