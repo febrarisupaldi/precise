@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -45,7 +46,10 @@ class ProductCustomerController extends Controller
             ->leftJoin('precise.customer as c', 'a.customer_id', '=', 'c.customer_id')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->productCustomer], 200);
+        if (count($this->productCustomer) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productCustomer, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -84,6 +88,8 @@ class ProductCustomerController extends Controller
     public function showCustomer($id): JsonResponse
     {
         $this->productCustomer = DB::table('precise.product_customer as a')
+            ->where("a.customer_id", $id)
+            ->where("a.is_active", 1)
             ->select(
                 'a.product_customer_id',
                 'a.product_id',
@@ -119,10 +125,7 @@ class ProductCustomerController extends Controller
                     ->on('pldt.price_group_seq', '=', 'plhd.price_seq')
                     ->on('p.product_code', '=', 'pldt.product_code');
             })
-            ->where([
-                'a.customer_id' => $id,
-                'a.is_active' => 1
-            ])->get();
+            ->get();
 
         if (count($this->productCustomer) == 0)
             return response()->json(["status" => "error", "message" => "not found"], 404);
@@ -144,7 +147,7 @@ class ProductCustomerController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->productCustomer = DB::table('precise.product_customer')
             ->insert([
@@ -158,11 +161,10 @@ class ProductCustomerController extends Controller
                 'created_by'                    => $request->created_by
             ]);
 
-        if ($this->productCustomer == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
-        }
+        if ($this->productCustomer == 0)
+            return ResponseController::json(status: "error", message: "error input data", code: 500);
 
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -182,7 +184,7 @@ class ProductCustomerController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -203,13 +205,13 @@ class ProductCustomerController extends Controller
 
             if ($this->productCustomer == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -222,7 +224,7 @@ class ProductCustomerController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -233,14 +235,14 @@ class ProductCustomerController extends Controller
                 ->delete();
 
             if ($this->productCustomer == 0) {
-                DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'Failed to delete product customer, Contact your administrator']);
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'Product customer has been deleted']);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -255,14 +257,17 @@ class ProductCustomerController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             $this->productCustomer = DB::table('product_customer')->where([
                 'product_id' => $product,
                 'customer_id' => $customer
             ])->count();
 
-            return response()->json(['status' => 'ok', 'message' => $this->productCustomer]);
+            if ($this->productCustomer == 0)
+                return ResponseController::json(status: "error", message: $this->productCustomer, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->productCustomer, code: 200);
         }
     }
 }
