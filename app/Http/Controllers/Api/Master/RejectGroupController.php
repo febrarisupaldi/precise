@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -28,7 +29,10 @@ class RejectGroupController extends Controller
             )
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->rejectGroup], 200);
+        if (count($this->rejectGroup) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->rejectGroup, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -61,7 +65,7 @@ class RejectGroupController extends Controller
             'created_by'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->rejectGroup = DB::table('precise.reject_group')
             ->insert([
@@ -71,10 +75,10 @@ class RejectGroupController extends Controller
                 'created_by'                => $request->created_by
             ]);
 
-        if ($this->rejectGroup == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->rejectGroup == 0)
+            return ResponseController::json(status: "error", message: "error input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -88,7 +92,7 @@ class RejectGroupController extends Controller
             'updated_by'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -105,13 +109,13 @@ class RejectGroupController extends Controller
 
             if ($this->rejectGroup == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -123,7 +127,7 @@ class RejectGroupController extends Controller
             'deleted_by'        => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -135,13 +139,13 @@ class RejectGroupController extends Controller
 
             if ($this->rejectGroup == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -154,7 +158,7 @@ class RejectGroupController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code") {
                 $this->rejectGroup = DB::table('precise.reject_group')
@@ -162,9 +166,9 @@ class RejectGroupController extends Controller
                     ->count();
             }
             if ($this->rejectGroup == 0)
-                return response()->json(['status' => 'error', 'message' => $this->rejectGroup], 500);
+                return ResponseController::json(status: "error", message: $this->rejectGroup, code: 404);
 
-            return response()->json(['status' => 'ok', 'message' => $this->rejectGroup], 200);
+            return ResponseController::json(status: "ok", message: $this->rejectGroup, code: 200);
         }
     }
 }

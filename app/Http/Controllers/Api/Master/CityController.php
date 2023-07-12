@@ -18,8 +18,6 @@ class CityController extends Controller
     public function index(): JsonResponse
     {
         $this->city = DB::table('precise.city as c')
-            ->join('state as s', 'c.state_id', '=', 's.state_id')
-            ->join('country as co', 's.country_id', '=', 'co.country_id')
             ->select(
                 'city_id',
                 'city_code',
@@ -31,6 +29,8 @@ class CityController extends Controller
                 'c.updated_on',
                 'c.updated_by'
             )
+            ->join('state as s', 'c.state_id', '=', 's.state_id')
+            ->join('country as co', 's.country_id', '=', 'co.country_id')
             ->get();
 
         if (count($this->city) == 0)

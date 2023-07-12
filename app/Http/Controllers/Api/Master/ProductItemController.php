@@ -222,13 +222,13 @@ class ProductItemController extends Controller
 
             if ($this->productItem == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 204);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
