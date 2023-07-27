@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class ResponseController extends Controller
 {
-    public static function json(string $status, string $message = '', $data = '', string $id = '', int $code): JsonResponse
+    public static function json(string $status = "", string $message = "", $data = "", string $id = "", int $code = 200): JsonResponse
     {
         return response()->json(["status" => $status, "message" => $message, "data" => $data, "id" => $id], $code);
     }

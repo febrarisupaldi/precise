@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Auth\AuthController;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 
 class SettingController extends Controller
 {
@@ -34,7 +35,7 @@ class SettingController extends Controller
             );
 
         $this->setting = DB::table('precise.menu')
-            ->where('menu.is_active', 1)
+            ->where('menu.is_active', DB::raw(1))
             ->select(
                 'menu.menu_id',
                 'menu.menu_name',
