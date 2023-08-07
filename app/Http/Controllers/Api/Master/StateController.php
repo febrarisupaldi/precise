@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,10 @@ class StateController extends Controller
             )
             ->leftJoin('precise.country as c', 's.country_id', '=', 'c.country_id')
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->state], 200);
+        if ($this->state)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->state, code: 200);
     }
     public function show($id): JsonResponse
     {
@@ -57,7 +61,7 @@ class StateController extends Controller
             ]
         );
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->state = DB::table('precise.state')
@@ -68,10 +72,10 @@ class StateController extends Controller
                 'created_by' => $request->created_by
             ]);
 
-        if ($this->state == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->state == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
     public function update(Request $request): JsonResponse
     {
@@ -88,7 +92,7 @@ class StateController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             DB::beginTransaction();
@@ -105,13 +109,14 @@ class StateController extends Controller
 
             if ($this->state == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
     public function check(Request $request): JsonResponse
@@ -123,15 +128,16 @@ class StateController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
-        if ($type == "code") {
+        if ($type == "code")
             $this->state = DB::table('precise.state')->where('state_code', $value)->count();
-        } elseif ($type == "name") {
+        elseif ($type == "name")
             $this->state = DB::table('precise.state')->where('state_name', $value)->count();
-        }
+
         if ($this->state == 0)
-            return response()->json(['status' => 'error', 'message' => $this->state], 404);
-        return response()->json(['status' => 'ok', 'message' => $this->state], 200);
+            return ResponseController::json(status: "error", message: $this->state, code: 404);
+
+        return ResponseController::json(status: "ok", message: $this->state, code: 200);
     }
 }

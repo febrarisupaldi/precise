@@ -27,7 +27,7 @@ class RetailTypeController extends Controller
                 'updated_by'
             )
             ->get();
-        if ($this->retailType)
+        if (count($this->retailType) == 0)
             return ResponseController::json(status: "error", data: "not found", code: 404);
 
         return ResponseController::json(status: "ok", data: $this->retailType, code: 200);
