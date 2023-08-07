@@ -25,7 +25,7 @@ class SalesmanController extends Controller
             ->leftJoin("precise.employee as e", "s.salesman_id", "=", "e.employee_nik")
             ->get();
 
-        if ($this->salesman)
+        if (count($this->salesman) == 0)
             return ResponseController::json(status: "error", data: "not found", code: 404);
 
         return ResponseController::json(status: "ok", data: $this->salesman, code: 200);

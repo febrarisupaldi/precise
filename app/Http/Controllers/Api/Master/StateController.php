@@ -30,7 +30,7 @@ class StateController extends Controller
             )
             ->leftJoin('precise.country as c', 's.country_id', '=', 'c.country_id')
             ->get();
-        if ($this->state)
+        if (count($this->state) == 0)
             return ResponseController::json(status: "error", data: "not found", code: 404);
 
         return ResponseController::json(status: "ok", data: $this->state, code: 200);
