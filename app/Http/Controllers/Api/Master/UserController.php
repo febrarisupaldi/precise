@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -29,7 +30,10 @@ class UserController extends Controller
                 'u.updated_by'
             )->leftJoin('employee as e', 'u.user_id', '=', 'e.employee_nik')
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->user], 200);
+        if (count($this->user) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->user, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -64,27 +68,27 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            if (empty($request->password))
-                $pass = 123456;
-            else
-                $pass = $request->password;
-            $this->user = DB::table('precise.users')->insert([
-                'user_id'           => $request->user_id,
-                'password'          => bcrypt($pass),
-                'email_internal'    => $request->email_internal,
-                'email_external'    => $request->email_external,
-                'main_phone_number' => $request->main_phone_number,
-                'telegram_id'       => $request->telegram_id,
-                'created_by'        => $request->created_by
-            ]);
-
-            if ($this->user == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-            }
-            return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        if (empty($request->password))
+            $pass = 123456;
+        else
+            $pass = $request->password;
+
+        $this->user = DB::table('precise.users')->insert([
+            'user_id'           => $request->user_id,
+            'password'          => bcrypt($pass),
+            'email_internal'    => $request->email_internal,
+            'email_external'    => $request->email_external,
+            'main_phone_number' => $request->main_phone_number,
+            'telegram_id'       => $request->telegram_id,
+            'created_by'        => $request->created_by
+        ]);
+
+        if ($this->user == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -101,7 +105,7 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -118,12 +122,15 @@ class UserController extends Controller
                 ]);
 
             if ($this->user == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                DB::rollback();
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -136,7 +143,7 @@ class UserController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == 'id') {
                 $this->user = DB::table('precise.users')
@@ -144,8 +151,9 @@ class UserController extends Controller
                     ->count();
             }
             if ($this->user == 0)
-                return response()->json(['status' => 'error', 'message' => $this->user], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->user], 200);
+                return ResponseController::json(status: "error", message: $this->user, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->user, code: 200);
         }
     }
 
@@ -158,7 +166,7 @@ class UserController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -172,13 +180,13 @@ class UserController extends Controller
 
             if ($this->user == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed reset password'], 500);
+                return ResponseController::json(status: "error", message: "failed reset password", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success reset password'], 200);
+            return ResponseController::json(status: "ok", message: "success reset password", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -195,7 +203,7 @@ class UserController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->user = DB::table('precise.users')
@@ -204,7 +212,7 @@ class UserController extends Controller
             ->first();
 
         if (empty($this->user))
-            return response()->json(['status' => 'error', 'message' => 'user not found'], 500);
+            return ResponseController::json(status: "error", message: "user not found", code: 404);
         if (Hash::check($request->old_password, $this->user->password)) {
             DB::beginTransaction();
             try {
@@ -217,16 +225,16 @@ class UserController extends Controller
 
                 if ($this->user == 0) {
                     DB::rollback();
-                    return response()->json(['status' => 'error', 'message' => 'failed update password'], 500);
+                    return ResponseController::json(status: "error", message: "failed update password", code: 500);
                 }
                 DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success update password'], 200);
+                return ResponseController::json(status: "ok", message: "success update password", code: 200);
             } catch (\Exception $e) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
             }
         } else {
-            return response()->json(['status' => 'error', 'message' => 'old password not match'], 500);
+            return ResponseController::json(status: "error", message: "old password not matched", code: 400);
         }
     }
 }

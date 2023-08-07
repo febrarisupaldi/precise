@@ -566,7 +566,7 @@ class TechnicalStandardController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "code")
                 $this->technical = DB::table('precise.technical_std_dt')

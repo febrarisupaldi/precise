@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,10 @@ class UOMController extends Controller
                 'updated_by'
             )
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->uom], 200);
+        if (count($this->uom) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->uom, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -51,7 +55,7 @@ class UOMController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->uom = DB::table('precise.uom')
             ->insert([
@@ -60,10 +64,10 @@ class UOMController extends Controller
                 'created_by'    => $request->created_by
             ]);
 
-        if ($this->uom == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->uom == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -77,7 +81,7 @@ class UOMController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -92,13 +96,14 @@ class UOMController extends Controller
 
             if ($this->uom == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
+
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -111,20 +116,20 @@ class UOMController extends Controller
             'value' => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
-            if ($type == "code") {
+            if ($type == "code")
                 $this->uom = DB::table('precise.uom')
                     ->where('uom_code', $value)
                     ->count();
-            } elseif ($type == "name") {
+            elseif ($type == "name")
                 $this->uom = DB::table('precise.uom')
                     ->where('uom_name', $value)
                     ->count();
-            }
             if ($this->uom == 0)
-                return response()->json(['status' => 'error', 'message' => $this->uom], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->uom], 200);
+                return ResponseController::json(status: "error", message: $this->uom, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->uom, code: 200);
         }
     }
 }
