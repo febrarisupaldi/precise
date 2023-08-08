@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\QueryController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class WorkOrderStatusController extends Controller
@@ -25,6 +26,9 @@ class WorkOrderStatusController extends Controller
             )
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->workOrderStatus], 200);
+        if (count($this->workOrderStatus) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->workOrderStatus, code: 200);
     }
 }

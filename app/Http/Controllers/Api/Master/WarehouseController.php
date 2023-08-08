@@ -194,19 +194,19 @@ class WarehouseController extends Controller
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
         } else {
-            if ($type == "code") {
+            if ($type == "code")
                 $this->warehouse = DB::table('precise.warehouse')
                     ->where('warehouse_code', $value)
                     ->count();
-            } else if ($type == "name") {
+            elseif ($type == "name")
                 $this->warehouse = DB::table('precise.warehouse')
                     ->where('warehouse_name', $value)
                     ->count();
-            } else if ($type == "alias") {
+            elseif ($type == "alias")
                 $this->warehouse = DB::table('precise.warehouse')
                     ->where('warehouse_alias', $value)
                     ->count();
-            }
+
             if ($this->warehouse == 0)
                 return ResponseController::json(status: "error", message: $this->warehouse, code: 404);
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -20,11 +21,14 @@ class WorkcenterController extends Controller
                 'workcenter_code',
                 'workcenter_name',
                 'workcenter_description',
-                DB::raw("concat(wh.warehouse_code, ' - ', wh.warehouse_name) 'Gudang default'
-            , case wc.is_active 
-                when 0 then 'Tidak aktif'
-                when 1 then 'Aktif' 
-            end as 'Status aktif'"),
+                DB::raw(
+                    "concat(wh.warehouse_code, ' - ', wh.warehouse_name) 'Gudang default'
+                        , case wc.is_active 
+                            when 0 then 'Tidak aktif'
+                            when 1 then 'Aktif' 
+                        end as 'Status aktif'
+                    "
+                ),
                 'production_type',
                 'wh.created_on',
                 'wh.created_by',
@@ -32,7 +36,10 @@ class WorkcenterController extends Controller
                 'wh.updated_by'
             )->leftJoin('precise.warehouse as wh', 'wc.default_warehouse', '=', 'wh.warehouse_id')
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->workcenter], 200);
+        if (count($this->workcenter) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->workcenter, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -74,7 +81,10 @@ class WorkcenterController extends Controller
             ->where('wc.workcenter_code', $id)
             ->get();
 
-        return response()->json(['status' => 'ok', 'data' => $this->workcenter], 200);
+        if (count($this->workcenter) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->workcenter, code: 200);
     }
 
     public function create(Request $request): JsonResponse
@@ -88,7 +98,7 @@ class WorkcenterController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->workcenter = DB::table('precise.workcenter')
             ->insert([
@@ -99,10 +109,10 @@ class WorkcenterController extends Controller
                 'created_by'                => $request->created_by
             ]);
 
-        if ($this->workcenter == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->workcenter == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -118,7 +128,7 @@ class WorkcenterController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -138,13 +148,13 @@ class WorkcenterController extends Controller
 
             if ($this->workcenter == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -156,7 +166,7 @@ class WorkcenterController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -167,13 +177,13 @@ class WorkcenterController extends Controller
 
             if ($this->workcenter == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -188,18 +198,19 @@ class WorkcenterController extends Controller
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
         } else {
-            if ($type == "code") {
+            if ($type == "code")
                 $this->workcenter = DB::table('precise.workcenter')
                     ->where('workcenter_code', $value)
                     ->count();
-            } elseif ($type == "name") {
+            elseif ($type == "name")
                 $this->workcenter = DB::table('workcenter')
                     ->where('workcenter_name', $value)
                     ->count();
-            }
+
             if ($this->workcenter == 0)
-                return response()->json(['status' => 'error', 'message' => "not found"], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->workcenter], 200);
+                return ResponseController::json(status: "error", message: $this->workcenter, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->workcenter, code: 200);
         }
     }
 }
