@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,10 @@ class WarehouseGroupController extends Controller
                 'updated_on',
                 'updated_by'
             )->get();
-        return response()->json(['status' => 'ok', 'data' => $this->warehouseGroup], 200);
+        if (count($this->warehouseGroup) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->warehouseGroup, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -45,7 +49,7 @@ class WarehouseGroupController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->warehouseGroup = DB::table('precise.warehouse_group')
@@ -55,10 +59,10 @@ class WarehouseGroupController extends Controller
                 'created_by'            => $request->created_by
             ]);
 
-        if ($this->warehouseGroup == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->warehouseGroup == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -71,7 +75,7 @@ class WarehouseGroupController extends Controller
             'reason'                    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -86,13 +90,13 @@ class WarehouseGroupController extends Controller
 
             if ($this->warehouseGroup == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -104,7 +108,7 @@ class WarehouseGroupController extends Controller
             'reason'                    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -115,13 +119,13 @@ class WarehouseGroupController extends Controller
                 ->delete();
             if ($this->warehouseGroup == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -140,10 +144,11 @@ class WarehouseGroupController extends Controller
                 $this->warehouseGroup = DB::table('precise.warehouse_group')
                     ->where('warehouse_group_code', $value)
                     ->count();
-                if (empty($this->warehouseGroup))
-                    return response()->json(['status' => 'error', 'message' => "not found"], 200);
-                return response()->json(['status' => 'ok', 'message' => $this->warehouseGroup], 200);
             }
+
+            if ($this->warehouseGroup == 0)
+                return response()->json(['status' => 'error', 'message' => "not found"], 200);
+            return response()->json(['status' => 'ok', 'message' => $this->warehouseGroup], 200);
         }
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Master;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,10 @@ class WarehouseRackController extends Controller
             ->orderBy('rack_level', 'desc')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->rack], 200);
+        if (count($this->rack) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->rack, code: 200);
     }
 
     public function getByZoneAndLane($zone, $lane): JsonResponse
@@ -54,6 +58,9 @@ class WarehouseRackController extends Controller
             ->orderBy('rack_level', 'desc')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->rack], 200);
+        if (count($this->rack) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->rack, code: 200);
     }
 }
