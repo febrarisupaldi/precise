@@ -146,7 +146,7 @@ class PurchaseOrderController extends Controller
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
         } else {
-            $this->purchase = DB::table('dbstok.po_hd')
+            $this->purchaseOrder = DB::table('dbstok.po_hd')
                 ->insert([
                     'po_hd_id'      => $request->po_hd_id,
                     'id_produk'     => $request->id_produk,
@@ -155,7 +155,7 @@ class PurchaseOrderController extends Controller
                     'created_by'    => $request->created_by
                 ]);
 
-            if ($this->purchase == 0) {
+            if ($this->purchaseOrder == 0) {
                 return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
             }
             return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
@@ -164,7 +164,7 @@ class PurchaseOrderController extends Controller
 
     public function getLastNumber($number): JsonResponse
     {
-        $this->purchase = DB::table("dbstok.po_hd as a")
+        $this->purchaseOrder = DB::table("dbstok.po_hd as a")
             ->select(
                 DB::raw('MAX(a.po_number) AS no_akhir'),
                 'po_hd_id'
@@ -174,8 +174,8 @@ class PurchaseOrderController extends Controller
             ->groupBy('po_hd_id')
             ->first();
 
-        if (empty($this->purchase))
+        if (empty($this->purchaseOrder))
             return response()->json("not found", 404);
-        return response()->json($this->purchase, 200);
+        return response()->json($this->purchaseOrder, 200);
     }
 }
