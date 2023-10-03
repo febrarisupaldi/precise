@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Master;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class TestController extends Controller
 {
@@ -26,5 +27,20 @@ class TestController extends Controller
         // $object1 = $object->$key;
 
         // return response()->json(["data" => $object1], 200);
+    }
+
+    public function testValidator(Request $request)
+    {
+        $data = $request->json()->all();
+        $validator = Validator::make($data['data'], [
+            "*.city"    => ['required'],
+            "*.state" => ['required']
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+        }
+
+        return response()->json(["message" => "Validation passed"]);
     }
 }

@@ -7,8 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
-use App\Http\Controllers\Api\Helpers\QueryController;
-use App\Http\Controllers\Api\Master\HelperController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\JsonResponse;
 
 class ProductionResultController extends Controller
@@ -16,21 +15,19 @@ class ProductionResultController extends Controller
     private $productionResult;
 
 
-    public function index(Request $request): JsonResponse
+    public function index($workcenter, Request $request): JsonResponse
     {
-        $start = $request->get('start');
-        $end = $request->get('end');
-        $wc = $request->get('workcenter_id');
+        $start = $request->get('start', date("Y-m-d"));
+        $end = $request->get('end', date("Y-m-d"));
         $validator = Validator::make($request->all(), [
             'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'workcenter_id' => 'required'
+            'end'           => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
-            $workcenter = explode("-", $wc);
+            $workcenter = explode("-", $workcenter);
             $this->productionResult = DB::table('precise.production_result_hd as pr')
                 ->whereIn('wo.workcenter_id', $workcenter)
                 ->whereBetween('pr.result_date', [$start, $end])
@@ -56,11 +53,12 @@ class ProductionResultController extends Controller
                 ->leftJoin('precise.warehouse_trans_hd as wht', 'prd.trans_hd_id', '=', 'wht.trans_hd_id')
                 ->get();
             if (count($this->productionResult) == 0)
-                return response()->json(["status" => "error", "data" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->productionResult], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->productionResult, code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -149,7 +147,7 @@ class ProductionResultController extends Controller
             ->leftJoin('precise.downtime as d', 'dwt.downtime_id', '=', 'd.downtime_id')
             ->get();
         if (count($downtime) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
         $reject = DB::table('precise.production_reject as rjt')
             ->where('rjt.result_hd_id', $master->result_hd_id)
@@ -168,7 +166,7 @@ class ProductionResultController extends Controller
             ->leftJoin('precise.reject as r', 'rjt.reject_id', '=', 'r.reject_id')
             ->get();
         if (count($reject) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
         // $this->productionResult =
         //     array(
@@ -240,15 +238,16 @@ class ProductionResultController extends Controller
             ->get();
 
         if (count($this->productionResult) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->productionResult], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->productionResult, code: 200);
     }
 
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $data = $request->json()->all();
         $validator = Validator::make($data, [
-            'result_date'           => 'required',
+            'result_date'           => 'required|date_format:Y-m-d',
             'result_shift'          => 'required',
             'work_order_hd_id'      => 'required|exists:work_order,work_order_hd_id',
             'PrdNumber'             => 'required',
@@ -258,7 +257,7 @@ class ProductionResultController extends Controller
 
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $transactionTypeID = 0;
         if ($data['workcenter_id'] == 1) {
@@ -300,22 +299,22 @@ class ProductionResultController extends Controller
 
             if ($id == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error 1"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
+            }
+
+            $validator = Validator::make($data, [
+                'detail.*.product_id'    => 'required|exists:product,product_id',
+                'detail.*.result_qty'    => 'required|numeric',
+                'detail.*.uom_code'      => 'required|exists:uom,uom_code',
+                'detail.*.created_by'    => 'required'
+            ]);
+
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
             }
 
             foreach ($data['detail'] as $transdt) {
-                $validator = Validator::make($transdt, [
-                    'product_id'    => 'required|exists:product,product_id',
-                    'result_qty'    => 'required|numeric',
-                    'uom_code'      => 'required|exists:uom,uom_code',
-                    'created_by'    => 'required'
-                ]);
-
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                }
-
                 $whDt[] = [
                     'trans_hd_id'           => $id,
                     'trans_number'          => $number,
@@ -341,7 +340,7 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error 2"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
             $resSeq = 0;
             $resultSeq = DB::table('precise.production_result_hd')
@@ -371,7 +370,21 @@ class ProductionResultController extends Controller
 
             if ($id == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error 3"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
+            }
+
+            $validator = Validator::make($data, [
+                'detail.*.product_id'       => 'required|exists:product,product_id',
+                'detail.*.product_code'     => 'required|exists:product,product_code',
+                'detail.*.PrdNumber'        => 'required',
+                'detail.*.result_qty'       => 'required|numeric',
+                'detail.*.result_warehouse' => 'required|numeric',
+                'detail.*.bstb_id'          => 'required|exists:bstb,bstb_id'
+            ]);
+
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
             }
 
             foreach ($data['detail'] as $d) {
@@ -396,10 +409,26 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error 4"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             if ($data['downtime'] != null) {
+                $validator = Validator::make($data, [
+                    'downtime.*.downtime_id'        => 'required|exists:downtime,downtime_id',
+                    'downtime.*.start_time'         => 'required',
+                    'downtime.*.end_time'           => 'required',
+                    'downtime.*.std_duration'       => 'required',
+                    'downtime.*.downtime_note'      => 'required',
+                    'downtime.*.approval_status'    => 'required',
+                    'downtime.*.approval_note'      => 'required',
+                    'downtime.*.created_by'         => 'required'
+                ]);
+
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['downtime'] as $downtime) {
                     $dwt[] = [
                         'result_hd_id'              => $id,
@@ -418,11 +447,22 @@ class ProductionResultController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error 5"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
             if ($data['reject'] != null) {
+
+                $validator = Validator::make($data, [
+                    'reject.*.reject_id'    => 'required|exists:reject,reject_id',
+                    'reject.*.reject_qty'   => 'required|numeric'
+                ]);
+
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['reject'] as $reject) {
                     $rjt[] = [
                         'result_hd_id'              => $id,
@@ -436,7 +476,7 @@ class ProductionResultController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error 6"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
@@ -450,21 +490,20 @@ class ProductionResultController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error 7"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
             $trans = DB::table('precise.production_result_hd')
                 ->where('result_hd_id', $id)
-                ->select('PrdNumber')
-                ->first();
+                ->value('PrdNumber');
 
             DB::raw(DB::select('call precise.`system_increment_transaction_counter`(:transTypeID, :rDate)', ['transTypeID' => $transactionTypeID, 'rDate' => $data['result_date']]));
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => $id], 200);
+            return ResponseController::json(status: "ok", message: "success input data", id: $trans, code: 500);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -472,8 +511,8 @@ class ProductionResultController extends Controller
     {
         $data = $request->json()->all();
         $validator = Validator::make($data, [
-            'result_hd_id'          => 'required',
-            'result_date'           => 'required',
+            'result_hd_id'          => 'required|exists:production_result_hd,result_hd_id',
+            'result_date'           => 'required|date_format:Y-m-d',
             'result_shift'          => 'required',
             'work_order_hd_id'      => 'required|exists:work_order,work_order_hd_id',
             'PrdNumber'             => 'required',
@@ -482,7 +521,7 @@ class ProductionResultController extends Controller
             'reason'                => 'required',
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -498,6 +537,14 @@ class ProductionResultController extends Controller
 
             if ($checkPB != null) {
                 $mode = "clone";
+                $validator = Validator::make($data, [
+                    'detail.*.result_dt_id' => 'required|exists:production_result_dt,result_dt_id',
+                    'detail.*.result_qty'   => 'required|date_format:Y-m-d'
+                ]);
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
                 foreach ($data['detail'] as $detailresult) {
                     $this->productionResult = DB::table("precise.production_result_clone")
                         ->insert([
@@ -513,6 +560,18 @@ class ProductionResultController extends Controller
                 }
             } else {
                 $mode = "update";
+
+                $validator = Validator::make($data, [
+                    'detail.*.result_hd_id' => 'required|exists:production_result_hd,result_hd_id',
+                    'detail.*.product_id'   => 'required|exists:product,product_id',
+                    'detail.*.result_qty'   => 'required|numeric',
+                    'detail.*.uom_code'     => 'required|exists:uom,uom_code'
+                ]);
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['detail'] as $transdt) {
                     DB::table('precise.warehouse_trans_hd')
                         ->where('trans_hd_id', $transdt['trans_hd_id'])
@@ -566,6 +625,25 @@ class ProductionResultController extends Controller
                         'ResultSeq'           => $resSeq,
                         'updated_by'          => $data['updated_by']
                     ]);
+
+                $validator = Validator::make($data, [
+                    'detail.*.result_dt_id'     => 'required|exists:production_result_dt,result_dt_id',
+                    'detail.*.result_hd_id'     => 'required|exists:production_result_hd,result_hd_id',
+                    'detail.*.product_id'       => 'required|exists:product,product_id',
+                    'detail.*.product_code'     => 'required|exists:product,product_code',
+                    'detail.*.PrdNumber'        => 'required',
+                    'detail.*.InvtNmbr'         => 'required',
+                    'detail.*.InvtType'         => 'required',
+                    'detail.*.result_qty'       => 'required|numeric',
+                    'detail.*.result_warehouse' => 'required|numeric',
+                    'detail.*.bstb'             => 'required',
+                    'detail.*.trans_hd_id'      => 'required|exists:warehouse_trans_hd,trans_hd_id'
+                ]);
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['detail'] as $d) {
                     DB::table('precise.production_result_dt')
                         ->where('result_dt_id', $d['result_dt_id'])
@@ -594,6 +672,23 @@ class ProductionResultController extends Controller
                     ->delete();
 
                 if ($data['downtime'] != null) {
+                    $validator = Validator::make($data, [
+                        'downtime.*.result_hd_id'       => 'required|exists:production_result_hd,result_hd_id',
+                        'downtime.*.downtime_id'        => 'required|exists:downtime,downtime_id',
+                        'downtime.*.start_time'         => 'required',
+                        'downtime.*.end_time'           => 'required',
+                        'downtime.*.std_duration'       => 'required',
+                        'downtime.*.downtime_note'      => 'required',
+                        'downtime.*.approval_status'    => 'required',
+                        'downtime.*.approval_note'      => 'required',
+                        'downtime.*.created_by'         => 'required'
+                    ]);
+
+                    if ($validator->fails()) {
+                        DB::rollBack();
+                        return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                    }
+
                     foreach ($data['downtime'] as $downtime) {
                         $dwt[] = [
                             'result_hd_id'              => $data['result_hd_id'],
@@ -607,11 +702,26 @@ class ProductionResultController extends Controller
                             'created_by'                => $data['created_by']
                         ];
                     }
-                    DB::table('precise.production_downtime')
+                    $check = DB::table('precise.production_downtime')
                         ->insert($dwt);
+
+                    if ($check == 0) {
+                        DB::rollBack();
+                        return ResponseController::json(status: "error", message: "server error", code: 500);
+                    }
                 }
 
                 if ($data['reject'] != null) {
+                    $validator = Validator::make($data, [
+                        'reject.*.reject_id'    => 'required|exists:reject,reject_id',
+                        'reject.*.reject_qty'   => 'required|numeric'
+                    ]);
+
+                    if ($validator->fails()) {
+                        DB::rollBack();
+                        return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                    }
+
                     foreach ($data['reject'] as $reject) {
                         $rjt[] = [
                             'result_hd_id'              => $data['result_hd_id'],
@@ -620,17 +730,22 @@ class ProductionResultController extends Controller
                             'created_by'                => $data['created_by']
                         ];
                     }
-                    DB::table('precise.production_reject')
+                    $check = DB::table('precise.production_reject')
                         ->insert($rjt);
+
+                    if ($check == 0) {
+                        DB::rollBack();
+                        return ResponseController::json(status: "error", message: "server error", code: 500);
+                    }
                 }
             }
 
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => $mode], 200);
+            return ResponseController::json(status: "ok", message: $mode, code: 500);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -644,7 +759,7 @@ class ProductionResultController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -663,7 +778,7 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table('precise.warehouse_trans_hd')
@@ -672,7 +787,7 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table('precise.production_downtime')
@@ -681,7 +796,7 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table('precise.production_reject')
@@ -690,7 +805,7 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table('precise.production_result_dt')
@@ -699,7 +814,7 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table('precise.production_result_hd')
@@ -708,14 +823,14 @@ class ProductionResultController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -729,7 +844,7 @@ class ProductionResultController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "material_usage") {
                 $this->productionResult = DB::table('precise.material_usage')->where([
@@ -737,17 +852,17 @@ class ProductionResultController extends Controller
                 ])->count();
             }
             if ($this->productionResult == 0)
-                return response()->json(['status' => 'error', 'message' => $this->productionResult], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->productionResult], 200);
+                return ResponseController::json(status: "error", message: $this->productionResult, code: 404);
+            return ResponseController::json(status: "ok", message: $this->productionResult, code: 200);
         }
     }
 
-    public function approve(Request $request): JsonResponse
+    public function updateApproval(Request $request): JsonResponse
     {
         $data = $request->json()->all();
         $validator = Validator::make($data, [
-            'result_hd_id'          => 'required',
-            'result_date'           => 'required',
+            'result_hd_id'          => 'required|exists:production_result_hd,result_hd_id',
+            'result_date'           => 'required|date:Y-m-d',
             'result_shift'          => 'required',
             'work_order_hd_id'      => 'required|exists:work_order,work_order_hd_id',
             'PrdNumber'             => 'required',
@@ -756,12 +871,21 @@ class ProductionResultController extends Controller
             'reason'                => 'required',
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
             DBController::reason($request, "update", $data);
-
+            $validator = Validator::make($data, [
+                'detail.*.trans_hd_id'  => 'required|exists:warehouse_trans_hd,trans_hd_id',
+                'detail.*.product_id'   => 'required|exists:product,product_id',
+                'detail.*.result_qty'   => 'required|numeric',
+                'detail.*.uom_code'     => 'required|exists:uom,uom_code'
+            ]);
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+            }
             foreach ($data['detail'] as $transdt) {
                 DB::table('precise.warehouse_trans_hd')
                     ->where('trans_hd_id', $transdt['trans_hd_id'])
@@ -822,6 +946,23 @@ class ProductionResultController extends Controller
                     'ResultSeq'           => $resSeq,
                     'updated_by'          => $data['updated_by']
                 ]);
+
+            $validator = Validator::make($data, [
+                'detail.*.result_dt_id'     => 'required|exists:production_result_dt,result_dt_id',
+                'detail.*.result_hd_id'     => 'required|exists:production_result_hd,result_hd_id',
+                'detail.*.product_id'       => 'required|exists:product,product_id',
+                'detail.*.product_code'     => 'required|exists:product,product_code',
+                'detail.*.PrdNumber'        => 'required',
+                'detail.*.InvtNmbr'         => 'required',
+                'detail.*.InvtType'         => 'required',
+                'detail.*.result_qty'       => 'required|numeric',
+                'detail.*.result_warehouse' => 'required|numeric',
+                'detail.*.trans_hd_id'      => 'required|exists:warehouse_trans_hd,trans_hd_id'
+            ]);
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+            }
             foreach ($data['detail'] as $d) {
                 DB::table('precise.production_result_dt')
                     ->where('result_dt_id', $d['result_dt_id'])
@@ -841,10 +982,10 @@ class ProductionResultController extends Controller
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }

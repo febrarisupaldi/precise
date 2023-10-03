@@ -17,6 +17,14 @@ class StockDiagramController extends Controller
         return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
     }
 
+    public function getStockDiagramByWarehouseAndProduct($warehouse, $product)
+    {
+        $this->stock = DB::select("call precise.warehouse_get_stock_diagram_by_product(?,?)", [$warehouse, $product]);
+        if (count($this->stock) == 0)
+            return response()->json(['status' => 'error', 'data' => "not found"], 404);
+        return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+    }
+
     public function getStockDiagram2($id): JsonResponse
     {
         DB::beginTransaction();

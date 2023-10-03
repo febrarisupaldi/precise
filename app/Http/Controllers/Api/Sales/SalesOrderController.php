@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Sales;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Query\Builder;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Validator;
 
 class SalesOrderController extends Controller
 {
-    private $salesOrder, $checkSalesOrder;
+    private $salesOrder;
     public function index(Request $request): JsonResponse
     {
         $start = $request->get('start');
@@ -22,7 +23,7 @@ class SalesOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->salesOrder = DB::table('precise.sales_order_hd as a')
             ->whereBetween('sales_order_date', [$start, $end])
@@ -51,8 +52,9 @@ class SalesOrderController extends Controller
             ->leftJoin('product as c', 'b.product_id', '=', 'c.product_id')
             ->get();
         if (count($this->salesOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->salesOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->salesOrder, code: 200);
     }
 
 
@@ -147,8 +149,9 @@ class SalesOrderController extends Controller
             ->orderBy('SO.sales_order_seq')
             ->get();
         if (count($this->salesOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->salesOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->salesOrder, code: 200);
     }
 
     public function process($id): JsonResponse
@@ -183,8 +186,9 @@ class SalesOrderController extends Controller
             ->get();
 
         if (count($this->salesOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->salesOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->salesOrder, code: 200);
     }
     public function detail(Request $request): JsonResponse
     {
@@ -196,7 +200,7 @@ class SalesOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->salesOrder = DB::table('precise.sales_order_hd as a')
             ->whereBetween('sales_order_date', [$start, $end])
@@ -226,8 +230,9 @@ class SalesOrderController extends Controller
             ->get();
 
         if (count($this->salesOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->salesOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->salesOrder, code: 200);
     }
 
     public function detailShow($id): JsonResponse
@@ -258,8 +263,9 @@ class SalesOrderController extends Controller
             ->get();
 
         if (count($this->salesOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->salesOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->salesOrder, code: 200);
     }
 
     public function joined(Request $request): JsonResponse
@@ -272,7 +278,7 @@ class SalesOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->salesOrder = DB::table('sales_order_hd as a')
             ->whereBetween('sales_order_date', [$start, $end])
@@ -328,28 +334,26 @@ class SalesOrderController extends Controller
             ->get();
 
         if (count($this->salesOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->salesOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->salesOrder, code: 200);
     }
 
     public function release(Request $request): JsonResponse
     {
         $json = $request->json()->all();
+        $validator = Validator::make($json, [
+            '*.sales_order_hd_id' => 'required|exists:sales_order_hd,sales_order_hd_id',
+            '*.released_on'       => 'required|date_format:Y-m-d',
+            '*.released_by'       => 'required|exists:users,user_id',
+            '*.pick_up_priority'  => 'required|exists:pick_up_priority,pick_up_priority_id',
+            '*.created_by'        => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
         foreach ($json as $data) {
-            DB::beginTransaction();
-            $validator = Validator::make($data, [
-                'sales_order_hd_id' => 'required|exists:sales_order_hd,sales_order_hd_id',
-                'released_on'       => 'required|date_format:Y-m-d',
-                'released_by'       => 'required|exists:users,user_id',
-                'pick_up_priority'  => 'required|exists:pick_up_priority,pick_up_priority_id',
-                'created_by'        => 'required'
-            ]);
-
-            if ($validator->fails()) {
-                DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-            }
-
             $values[] = [
                 "sales_order_hd_id" => $data["sales_order_hd_id"],
                 "released_on"       => $data["released_on"],
@@ -362,7 +366,8 @@ class SalesOrderController extends Controller
             ->insert($values);
 
         if ($this->salesOrder < 1)
-            return response()->json(["status" => "error", "message" => "failed input data"], 500);
-        return response()->json(["status" => "ok", "message" => "success input data"], 200);
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 }

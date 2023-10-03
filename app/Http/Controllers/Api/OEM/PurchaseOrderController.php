@@ -9,27 +9,28 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Master\HelperController;
 use App\Http\Controllers\Api\Helpers\QueryController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\JsonResponse;
 
 class PurchaseOrderController extends Controller
 {
     private $purchaseOrder;
-    public function index(Request $request): JsonResponse
+    /**
+     * modified route api
+     * 
+     */
+    public function index($wh, $cust, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
-        $wh = $request->get('warehouse_id');
-        $cust = $request->get('customer_id');
 
         $validator = Validator::make($request->all(), [
             'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'warehouse_id'  => 'required',
-            'customer_id'   => 'required'
+            'end'           => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $warehouse = explode('-', $wh);
         $customer = explode('-', $cust);
@@ -80,8 +81,9 @@ class PurchaseOrderController extends Controller
             ->get();
 
         if (count($this->purchaseOrder) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->purchaseOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -169,7 +171,7 @@ class PurchaseOrderController extends Controller
             );
             return response()->json($this->purchaseOrder, 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -186,11 +188,17 @@ class PurchaseOrderController extends Controller
             'shipping_address_id'   => 'required|exists:customer_address,customer_address_id',
             'desc'                  => 'nullable',
             'ppn_type'              => 'nullable',
-            'created_by'            => 'required'
+            'created_by'            => 'required',
+            'detail.*.oem_order_dt_seq'      => 'required|numeric',
+            'detail.*.product_customer_id'   => 'required|exists:product_customer,product_customer_id',
+            'detail.*.oem_order_qty'         => 'required|numeric',
+            'detail.*.due_date'              => 'required|date_format:Y-m-d',
+            'detail.*.loss_tolerance'        => 'required|numeric',
+            'detail.*.created_by'            => 'required'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -209,19 +217,6 @@ class PurchaseOrderController extends Controller
                 ]);
 
             foreach ($data['detail'] as $d) {
-                $validator = Validator::make($d, [
-                    'oem_order_dt_seq'      => 'required|numeric',
-                    'product_customer_id'   => 'required|exists:product_customer,product_customer_id',
-                    'oem_order_qty'         => 'required|numeric',
-                    'due_date'              => 'required|date_format:Y-m-d',
-                    'loss_tolerance'        => 'required|numeric',
-                    'created_by'            => 'required'
-                ]);
-
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                }
                 $dt[] = [
                     'oem_order_hd_id'       => $id,
                     'oem_order_dt_seq'      => $d['oem_order_dt_seq'],
@@ -238,19 +233,18 @@ class PurchaseOrderController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
-            $trans = DB::table('precise.oem_order_hd')
+            $number = DB::table('precise.oem_order_hd')
                 ->where('oem_order_hd_id', $id)
-                ->select('oem_order_number')
-                ->first();
+                ->value('oem_order_number');
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => $trans->oem_order_number], 200);
+            return ResponseController::json(status: "ok", message: "success input data", data: $number, code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -263,8 +257,8 @@ class PurchaseOrderController extends Controller
             'oem_order_date'        => 'required|date_format:Y-m-d',
             'customer_id'           => 'required|exists:customer,customer_id',
             'oem_order_type_id'     => 'required|exists:oem_order_type,oem_order_type_id',
-            'warehouse_id'          => 'required|exists:warehouse, warehouse_id',
-            'shipping_address_id'   => 'required|exists:customer_address, customer_address_id',
+            'warehouse_id'          => 'required|exists:warehouse,warehouse_id',
+            'shipping_address_id'   => 'required|exists:customer_address,customer_address_id',
             'desc'                  => 'nullable',
             'ppn_type'              => 'nullable',
             'reason'                => 'required',
@@ -272,7 +266,7 @@ class PurchaseOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -292,6 +286,19 @@ class PurchaseOrderController extends Controller
                 ]);
 
             if ($data['inserted'] != null) {
+                $validator = Validator::make($data, [
+                    'inserted.*.oem_order_dt_seq'      => 'required|numeric',
+                    'inserted.*.product_customer_id'   => 'required|exists:product_customer,product_customer_id',
+                    'inserted.*.oem_order_qty'         => 'required|numeric',
+                    'inserted.*.due_date'              => 'required|date_format:Y-m-d',
+                    'inserted.*.loss_tolerance'        => 'required|numeric',
+                    'inserted.*.created_by'            => 'required'
+                ]);
+
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['inserted'] as $d) {
                     $dt[] = [
                         'oem_order_hd_id'       => $d['oem_order_hd_id'],
@@ -308,11 +315,24 @@ class PurchaseOrderController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
             if ($data['updated'] != null) {
+                $validator = Validator::make($data, [
+                    'updated.*.oem_order_dt_id'     => 'required|exists:oem_order_dt,oem_order_dt_id',
+                    'updated.*.oem_order_dt_seq'    => 'required|numeric',
+                    'updated.*.product_customer_id' => 'required|exists:product_customer,product_customer_id',
+                    'updated.*.oem_order_qty'       => 'required|numeric',
+                    'updated.*.due_date'            => 'required|date_format:Y-m-d',
+                    'updated.*.loss_tolerance'      => 'required|numeric',
+                    'updated.*.created_by'          => 'required'
+                ]);
+
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
                 foreach ($data['updated'] as $d) {
                     $check = DB::table('precise.oem_order_dt')
                         ->where('oem_order_dt_id', $d['oem_order_dt_id'])
@@ -327,13 +347,19 @@ class PurchaseOrderController extends Controller
 
                     if ($check == 0) {
                         DB::rollBack();
-                        return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                        return ResponseController::json(status: "error", message: "server error", code: 500);
                     }
                 }
             }
 
             if ($data['deleted'] != null) {
-                $delete = array();
+                $validator = Validator::make($data, [
+                    'deleted.*.oem_order_dt_id' => 'required|exists:oem_order_dt,oem_order_dt_id'
+                ]);
+
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
                 foreach ($data['deleted'] as $del) {
                     $delete[] = $del['oem_order_dt_id'];
                 }
@@ -344,14 +370,14 @@ class PurchaseOrderController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -364,7 +390,7 @@ class PurchaseOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -377,7 +403,7 @@ class PurchaseOrderController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table('precise.oem_order_hd')
@@ -386,14 +412,14 @@ class PurchaseOrderController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -410,40 +436,39 @@ class PurchaseOrderController extends Controller
             ]
         );
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "delete");
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "delete");
 
-                $check = DB::table('precise.oem_order_dt as dt')
-                    ->where('oem_order_number', $request->oem_order_number)
-                    ->where('customer_id', $request->customer_id)
-                    ->where('warehouse_id', $request->warehouse_id)
-                    ->join('precise.oem_order_hd as hd', 'hd.oem_order_hd_id', '=', 'dt.oem_order_hd_id')
-                    ->delete();
+            $check = DB::table('precise.oem_order_dt as dt')
+                ->where('oem_order_number', $request->oem_order_number)
+                ->where('customer_id', $request->customer_id)
+                ->where('warehouse_id', $request->warehouse_id)
+                ->join('precise.oem_order_hd as hd', 'hd.oem_order_hd_id', '=', 'dt.oem_order_hd_id')
+                ->delete();
 
-                if ($check == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
-                }
-
-                $check = DB::table('precise.oem_order_hd')
-                    ->where('oem_order_number', $request->oem_order_number)
-                    ->where('customer_id', $request->customer_id)
-                    ->where('warehouse_id', $request->warehouse_id)
-                    ->delete();
-                if ($check == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
-                }
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
-            } catch (\Exception $e) {
+            if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
+
+            $check = DB::table('precise.oem_order_hd')
+                ->where('oem_order_number', $request->oem_order_number)
+                ->where('customer_id', $request->customer_id)
+                ->where('warehouse_id', $request->warehouse_id)
+                ->delete();
+            if ($check == 0) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "server error", code: 500);
+            }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -458,7 +483,7 @@ class PurchaseOrderController extends Controller
             ]
         );
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             $this->purchaseOrder = DB::table('precise.oem_order_hd')
                 ->where('oem_order_number', $request->oem_order_number)
@@ -466,26 +491,23 @@ class PurchaseOrderController extends Controller
                 ->where('warehouse_id', $request->warehouse_id)
                 ->count();
             if ($this->purchaseOrder == 0)
-                return response()->json(['status' => 'error', 'message' => $this->purchaseOrder], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->purchaseOrder], 200);
+                return ResponseController::json(status: "error", message: $this->purchaseOrder, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->purchaseOrder, code: 200);
         }
     }
 
-    public function joined(Request $request): JsonResponse
+    public function detail($wh, $cust, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
-        $wh = $request->get('warehouse_id');
-        $cust = $request->get('customer_id');
 
         $validator = Validator::make($request->all(), [
             'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'warehouse_id'  => 'required',
-            'customer_id'   => 'required'
+            'end'           => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             $warehouse = explode('-', $wh);
@@ -550,10 +572,11 @@ class PurchaseOrderController extends Controller
                 })
                 ->get();
             if (count($this->purchaseOrder) == 0)
-                return response()->json(['status' => 'error', 'data' => "not found"], 404);
-            return response()->json(['status' => 'ok', 'data' => $this->purchaseOrder], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -611,22 +634,18 @@ class PurchaseOrderController extends Controller
             ->groupBy('v.oem_order_dt_id', 'pldt.price_idr')
             ->get();
         if (count($this->purchaseOrder) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->purchaseOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 
-    public function outstandingValidation(Request $request): JsonResponse
+    /**
+     * modified route api
+     * 
+     */
+    public function outstandingValidation($product, $customer): JsonResponse
     {
-        $product = $request->get('product_id');
-        $customer = $request->get('customer_id');
 
-        $validator = Validator::make($request->all(), [
-            'product_id'    => 'required|exists:product,product_id',
-            'customer_id'   => 'required|exists:customer,customer_id'
-        ]);
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
         $this->purchaseOrder = DB::table("precise.oem_order_hd as hd")
             ->where('hd.oem_order_status', '!=', 'X')
             ->where('hd.customer_id', $customer)
@@ -642,10 +661,10 @@ class PurchaseOrderController extends Controller
                 'dt.product_customer_id',
                 'dt.oem_order_qty',
                 DB::raw("
-                SUM(IF(ods.is_delivery = 1, odd.delivery_qty, 0)) AS sum_delivery_qty,
-                SUM(IF(ods.is_on_going = 1, odd.delivery_qty, 0)) AS sum_on_going_qty,
-                SUM(IF(ods.is_received = 1, odd.received_qty, 0)) AS sum_received_qty,
-                dt.oem_order_qty - SUM(IF(ods.is_on_going = 1, odd.delivery_qty, 0)) - SUM(IF(ods.is_received = 1, odd.received_qty, 0)) outstanding
+                    SUM(IF(ods.is_delivery = 1, odd.delivery_qty, 0)) AS sum_delivery_qty,
+                    SUM(IF(ods.is_on_going = 1, odd.delivery_qty, 0)) AS sum_on_going_qty,
+                    SUM(IF(ods.is_received = 1, odd.received_qty, 0)) AS sum_received_qty,
+                    dt.oem_order_qty - SUM(IF(ods.is_on_going = 1, odd.delivery_qty, 0)) - SUM(IF(ods.is_received = 1, odd.received_qty, 0)) outstanding
                 ")
             )
             ->leftJoin('precise.oem_order_dt as dt', 'hd.oem_order_hd_id', '=', 'dt.oem_order_hd_id')
@@ -656,24 +675,13 @@ class PurchaseOrderController extends Controller
             ->get();
 
         if (count($this->purchaseOrder) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->purchaseOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 
-    public function outstandingLookup(Request $request): JsonResponse
+    public function outstandingLookup($id, $customer, $warehouse): JsonResponse
     {
-        $warehouse = $request->get('warehouse_id');
-        $customer = $request->get('customer_id');
-        $id = $request->get('id');
-
-        $validator = Validator::make($request->all(), [
-            'id'            => 'required|exists:oem_order_hd,oem_order_hd_id',
-            'warehouse_id'  => 'required|exists:warehouse,warehouse_id',
-            'customer_id'   => 'required|exists:customer,customer_id'
-        ]);
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
         $this->purchaseOrder = DB::table('precise.view_oem_outstanding_po as v')
             ->where('v.customer_id', $customer)
             ->where('v.warehouse_id', $warehouse)
@@ -702,32 +710,19 @@ class PurchaseOrderController extends Controller
             ->leftJoin('precise.customer_address as ca', 'ooh.shipping_address_id', '=', 'ca.customer_address_id')
             ->get();
         if (count($this->purchaseOrder) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->purchaseOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 
-    public function outstandingSchedule(Request $request): JsonResponse
+    public function outstandingSchedule($customer, $warehouse, $orderDate, $productCustomer): JsonResponse
     {
-        $customer = $request->get('customer_id');
-        $warehouse = $request->get('warehouse_id');
-        $order_date = $request->get('order_date');
-        $product_customer = $request->get('product_customer_id');
 
-        $validator = Validator::make($request->all(), [
-            'warehouse_id'          => 'required|exists:warehouse,warehouse_id',
-            'customer_id'           => 'required|exists:customer,customer_id',
-            'order_date'            => 'required|date_format:Y-m-d',
-            'product_customer_id'   => 'required|exists:product_customer,product_customer_id'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
         $po = DB::table('precise.oem_order_hd as hd')
             ->where('hd.customer_id', $customer)
             ->where('hd.warehouse_id', $warehouse)
-            ->where('hd.oem_order_date', $order_date)
-            ->where('dt.product_customer_id', $product_customer)
+            ->where('hd.oem_order_date', $orderDate)
+            ->where('dt.product_customer_id', $productCustomer)
             ->select(
                 'hd.oem_order_hd_id',
                 'hd.oem_order_number',
@@ -742,9 +737,9 @@ class PurchaseOrderController extends Controller
         $delivery = DB::table('precise.oem_order_hd as hd')
             ->where('hd.customer_id', $customer)
             ->where('hd.warehouse_id', $warehouse)
-            ->where('hd.oem_order_date', $order_date)
-            ->where('odh.oem_delivery_date', $order_date)
-            ->where('dt.product_customer_id', $product_customer)
+            ->where('hd.oem_order_date', $orderDate)
+            ->where('odh.oem_delivery_date', $orderDate)
+            ->where('dt.product_customer_id', $productCustomer)
             ->select(
                 'hd.oem_order_hd_id',
                 'dt.oem_order_dt_id',
@@ -787,7 +782,8 @@ class PurchaseOrderController extends Controller
             ->get();
 
         if (count($this->purchaseOrder) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->purchaseOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 }

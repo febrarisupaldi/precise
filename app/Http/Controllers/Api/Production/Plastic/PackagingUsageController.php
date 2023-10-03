@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Production\Plastic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,13 +64,12 @@ class PackagingUsageController extends Controller
                 ->leftJoin('precise.packaging_status as ps', 'base.status_code', '=', 'ps.status_code')
                 ->get();
 
-            if (count($this->packaging) == 0) {
-                return response()->json(['status' => 'not found', 'error' => '404'], 404);
-            }
+            if (count($this->packaging) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-            return response()->json(['status' => 'ok', 'data' => $this->packaging], 200);
+            return ResponseController::json(status: "ok", data: $this->packaging, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", data: $e->getMessage(), code: 500);
         }
     }
     public function showHistoryProductStatusByNumber($number)
@@ -110,13 +110,12 @@ class PackagingUsageController extends Controller
                 ->leftJoin('precise.packaging_status as ps', 'pn.status_code', '=', 'ps.status_code')
                 ->get();
 
-            if (count($this->packaging) == 0) {
-                return response()->json(['status' => 'not found', 'error' => '404'], 404);
-            }
+            if (count($this->packaging) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
 
-            return response()->json(['status' => 'ok', 'data' => $this->packaging], 200);
+            return ResponseController::json(status: "ok", data: $this->packaging, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", data: $e->getMessage(), code: 500);
         }
     }
 
@@ -131,70 +130,69 @@ class PackagingUsageController extends Controller
             'created_by'                =>  'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                $select = DB::table('precise.packaging_numbering as pn')
-                    ->where('packaging_number', $request->packaging_number)
-                    ->select('packaging_numbering_id');
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            $select = DB::table('precise.packaging_numbering as pn')
+                ->where('packaging_number', $request->packaging_number)
+                ->select('packaging_numbering_id');
 
-                DB::table('precise.packaging_usage_hd')
-                    ->insertUsing(
-                        ['packaging_numbering_id', 'usage_counter', 'used_by'],
-                        DB::table(
-                            DB::raw("({$select->toSql()}) as base")
-                        )->mergeBindings($select)
-                            ->select(
-                                'base.packaging_numbering_id',
-                                DB::raw(
-                                    "ifnull(max(usage_counter), 0) + 1",
-                                ),
-                                DB::raw("
+            DB::table('precise.packaging_usage_hd')
+                ->insertUsing(
+                    ['packaging_numbering_id', 'usage_counter', 'used_by'],
+                    DB::table(
+                        DB::raw("({$select->toSql()}) as base")
+                    )->mergeBindings($select)
+                        ->select(
+                            'base.packaging_numbering_id',
+                            DB::raw(
+                                "ifnull(max(usage_counter), 0) + 1",
+                            ),
+                            DB::raw("
                                     '$request->created_by'
                                 ")
-                            )
-                            ->leftJoin('precise.packaging_usage_hd as puh', 'base.packaging_numbering_id', '=', 'puh.packaging_numbering_id')
-                            ->groupBy('base.packaging_numbering_id')
-                    );
+                        )
+                        ->leftJoin('precise.packaging_usage_hd as puh', 'base.packaging_numbering_id', '=', 'puh.packaging_numbering_id')
+                        ->groupBy('base.packaging_numbering_id')
+                );
 
-                $id = DB::getPdo()->lastInsertId();
+            $id = DB::getPdo()->lastInsertId();
 
-                if (!$id) {
-                    DB::rollBack();
-                    return response()->json(["status" => "error", "message" => "server error"], 500);
-                }
-
-                $detail = DB::table("precise.packaging_usage_dt")
-                    ->insert([
-                        "packaging_usage_hd_id" => $id,
-                        "work_order_hd_id"      => $request->work_order_hd_id,
-                        "product_id"            => $request->product_id,
-                        "product_qty"           => $request->product_qty
-                    ]);
-
-                if ($detail == 0) {
-                    DB::rollBack();
-                    return response()->json(["status" => "error", "message" => "server error"], 500);
-                }
-
-                $update = DB::table("precise.packaging_numbering")
-                    ->where("packaging_numbering_id", $request->packaging_numbering_id)
-                    ->update([
-                        "status_code"   => "U"
-                    ]);
-
-                if ($update == 0) {
-                    DB::rollBack();
-                    return response()->json(["status" => "error", "message" => "server error"], 500);
-                }
-
-                DB::commit();
-                return response()->json(["status" => "ok", "message" => "success"], 200);
-            } catch (\Exception $e) {
+            if (!$id) {
                 DB::rollBack();
-                return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
+
+            $detail = DB::table("precise.packaging_usage_dt")
+                ->insert([
+                    "packaging_usage_hd_id" => $id,
+                    "work_order_hd_id"      => $request->work_order_hd_id,
+                    "product_id"            => $request->product_id,
+                    "product_qty"           => $request->product_qty
+                ]);
+
+            if ($detail == 0) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "server error", code: 500);
+            }
+
+            $update = DB::table("precise.packaging_numbering")
+                ->where("packaging_numbering_id", $request->packaging_numbering_id)
+                ->update([
+                    "status_code"   => "U"
+                ]);
+
+            if ($update == 0) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "server error", code: 500);
+            }
+
+            DB::commit();
+            return ResponseController::json(status: "ok", message: "sucess input data", code: 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }

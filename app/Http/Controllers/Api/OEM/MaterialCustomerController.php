@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\OEM;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -34,14 +35,20 @@ class MaterialCustomerController extends Controller
             )->leftJoin('precise.product as prod', 'hd.material_id', '=', 'prod.product_id')
             ->leftJoin('precise.customer as cust', 'hd.customer_id', '=', 'cust.customer_id')
             ->get();
+        if (count($this->materialCustomer) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(['status' => 'ok', 'data' => $this->materialCustomer], 200);
+        return ResponseController::json(status: "ok", data: $this->materialCustomer, code: 200);
     }
 
-    public function showMaterial($id): JsonResponse
+    /**
+     * modified route api
+     * 
+     */
+    public function showMaterial($material): JsonResponse
     {
         $this->materialCustomer = DB::table('precise.material_customer_hd as hd')
-            ->where('material_id', $id)
+            ->where('material_id', $material)
             ->select(
                 'material_id',
                 'hd.customer_id',
@@ -50,11 +57,12 @@ class MaterialCustomerController extends Controller
             )->leftJoin('precise.customer as cust', 'hd.customer_id', '=', 'cust.customer_id')
             ->get();
         if (count($this->materialCustomer) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->materialCustomer], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->materialCustomer, code: 200);
     }
 
-    public function joined(): JsonResponse
+    public function detail(): JsonResponse
     {
         $this->materialCustomer = DB::table('precise.material_customer_hd as hd')
             ->select(
@@ -83,7 +91,10 @@ class MaterialCustomerController extends Controller
             ->leftJoin('precise.customer as cust', 'hd.customer_id', '=', 'cust.customer_id')
             ->get();
 
-        return response()->json(['status' => 'ok', 'data' => $this->materialCustomer], 200);
+        if (count($this->materialCustomer) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->materialCustomer, code: 200);
     }
 
     public function showProductCustomer($id): JsonResponse
@@ -100,8 +111,9 @@ class MaterialCustomerController extends Controller
             ->leftJoin('precise.product as prod', 'hd.material_id', '=', 'prod.product_id')
             ->get();
         if (count($this->materialCustomer) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->materialCustomer], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->materialCustomer, code: 200);
     }
 
     public function showCustomer($id): JsonResponse
@@ -126,8 +138,9 @@ class MaterialCustomerController extends Controller
             ->get();
 
         if (count($this->materialCustomer) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->materialCustomer], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->materialCustomer, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -186,13 +199,14 @@ class MaterialCustomerController extends Controller
         $data = $request->json()->all();
 
         $validator = Validator::make($data, [
-            'material_id' => 'required|exists:product,product_id',
-            'customer_id' => 'required|exists:customer,customer_id',
-            'created_by'  => 'required',
-            'detail'      => 'required'
+            'material_id'                   => 'required|exists:product,product_id',
+            'customer_id'                   => 'required|exists:customer,customer_id',
+            'created_by'                    => 'required',
+            'detail.*.product_customer_id'  => 'required|exists:product_customer,product_customer_id',
+            'detail.*.created_by'           => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -205,19 +219,9 @@ class MaterialCustomerController extends Controller
 
             if ($id == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
             foreach ($data['detail'] as $d) {
-                $validator = Validator::make($d, [
-                    'product_customer_id'   => 'required|exists:product_customer,product_customer_id',
-                    'detail'                => 'required'
-                ]);
-
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                }
-
                 $dt[] = [
                     'material_customer_hd_id' => $id,
                     'product_customer_id'     => $d['product_customer_id'],
@@ -229,13 +233,13 @@ class MaterialCustomerController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+            return ResponseController::json(status: "ok", message: "success input data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -251,7 +255,7 @@ class MaterialCustomerController extends Controller
             'is_active'                 => 'required|boolean'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -266,6 +270,15 @@ class MaterialCustomerController extends Controller
                 ]);
 
             if ($data['inserted'] != null) {
+                $validator = Validator::make($data, [
+                    'inserted.*.material_customer_hd_id'    => 'required|exists:material_customer_hd,material_customer_hd_id',
+                    'inserted.*.product_customer_id'        => 'required|exists:product_customer,product_customer_id',
+                    'inserted.*.created_by'                 => 'required'
+                ]);
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
                 foreach ($data['inserted'] as $d) {
                     $dt[] = [
                         'material_customer_hd_id' => $d['material_customer_hd_id'],
@@ -278,11 +291,23 @@ class MaterialCustomerController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
             if ($data['updated'] != null) {
+
+                $validator = Validator::make($data, [
+                    'updated.*.material_customer_dt_id'    => 'required|exists:material_customer_dt,material_customer_dt_id',
+                    'updated.*.material_customer_hd_id'    => 'required|exists:material_customer_hd,material_customer_hd_id',
+                    'updated.*.product_customer_id'        => 'required|exists:product_customer,product_customer_id',
+                    'updated.*.created_by'                 => 'required'
+                ]);
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['updated'] as $d) {
                     $check = DB::table('precise.material_customer_dt')
                         ->where('material_customer_dt_id', $d['material_customer_dt_id'])
@@ -294,13 +319,20 @@ class MaterialCustomerController extends Controller
 
                     if ($check == 0) {
                         DB::rollBack();
-                        return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                        return ResponseController::json(status: "error", message: "server error", code: 500);
                     }
                 }
             }
 
             if ($data['deleted'] != null) {
-                $delete = array();
+
+                $validator = Validator::make($data, [
+                    'deleted.*.material_customer_dt_id'    => 'required|exists:material_customer_dt,material_customer_dt_id',
+                ]);
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['deleted'] as $del) {
                     $delete[] = $del['material_customer_dt_id'];
                 }
@@ -310,14 +342,14 @@ class MaterialCustomerController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success input data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }

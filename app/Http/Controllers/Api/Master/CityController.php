@@ -51,7 +51,7 @@ class CityController extends Controller
                 ->first();
 
             if (empty($this->city))
-                return response()->json("error", 404);
+                return response()->json("not found", 404);
             return response()->json($this->city, 200);
         } catch (\Exception $e) {
             return response()->json($e->getMessage(), 500);

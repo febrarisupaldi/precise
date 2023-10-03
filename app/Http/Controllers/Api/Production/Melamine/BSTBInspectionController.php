@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\Production\Melamine;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -12,7 +14,7 @@ class BSTBInspectionController extends Controller
 {
     private $bstbInspection;
 
-    public function showByBSTBNumber($number)
+    public function showByBSTBNumber($number): JsonResponse
     {
         $this->bstbInspection = DB::table("precise.bstb_inspection as bi")
             ->where('bstb_num', $number)
@@ -89,12 +91,12 @@ class BSTBInspectionController extends Controller
             ->get();
 
         if (count($this->bstbInspection) == 0)
-            return response()->json(["status" => "error", "message" => "not found", "data" => null], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "message" => "ok", "data" => $this->bstbInspection], 200);
+        return ResponseController::json(status: "ok", data: $this->bstbInspection, code: 200);
     }
 
-    public function show($id)
+    public function show($id): JsonResponse
     {
         $this->bstbInspection = DB::table("precise.bstb_inspection as bi")
             ->where('bi.bstb_inspection_id', $id)
@@ -171,12 +173,12 @@ class BSTBInspectionController extends Controller
             ->first();
 
         if (empty($this->bstbInspection))
-            return response()->json(["status" => "error", "message" => "not found", "data" => null], 404);
+            return response()->json("not found", 404);
 
         return response()->json($this->bstbInspection, 200);
     }
 
-    public function showLotCummulativeByBSTBID($id)
+    public function showLotCummulativeByBSTBID($id): JsonResponse
     {
         $this->bstbInspection = DB::table("precise.bstb_inspection")
             ->where('bstb_id', $id)
@@ -221,12 +223,12 @@ class BSTBInspectionController extends Controller
             ->get();
 
         if (count($this->bstbInspection) == 0)
-            return response()->json(["status" => "error", "message" => "not found", "data" => null], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "message" => "ok", "data" => $this->bstbInspection], 200);
+        return ResponseController::json(status: "ok", data: $this->bstbInspection, code: 200);
     }
 
-    public function update(Request $request)
+    public function update(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'bstb_inspection_id'            => 'required|exists:bstb_inspection,bstb_inspection_id',
@@ -272,7 +274,7 @@ class BSTBInspectionController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->bstbInspection = DB::table("precise.bstb_inspection")
@@ -320,9 +322,9 @@ class BSTBInspectionController extends Controller
             ]);
 
         if ($this->bstbInspection == 0)
-            return response()->json(["status" => "error", "message" => "server error"], 500);
+            return ResponseController::json(status: "error", message: "server error", code: 500);
 
-        return response()->json(["status" => "ok", "message" => "success update data"], 200);
+        return ResponseController::json(status: "ok", message: "success update data", code: 200);
     }
 
     private function createNewData(Request $request)
@@ -388,7 +390,7 @@ class BSTBInspectionController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->bstbInspection = DB::table("precise.bstb_inspection")
@@ -454,24 +456,24 @@ class BSTBInspectionController extends Controller
 
         return $this->bstbInspection;
     }
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $this->bstbInspection = $this->createNewData($request);
 
         if ($this->bstbInspection == 0)
-            return response()->json(["status" => "error", "message" => $this->bstbInspection], 500);
+            return ResponseController::json(status: "error", message: "server error", code: 500);
 
-        return response()->json(["status" => "ok", "message" => "success insert data"], 200);
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
-    public function closedQCChecked(Request $request)
+    public function closedQCChecked(Request $request): JsonResponse
     {
         DB::beginTransaction();
         $this->bstbInspection = $this->createNewData($request);
 
         if ($this->bstbInspection == 0) {
             DB::rollBack();
-            return response()->json(["status" => "error", "message" => "server error"], 500);
+            return ResponseController::json(status: "error", message: "server error", code: 500);
         }
         $this->bstbInspection = DB::table("precise.bstb")
             ->where("bstb_id", $request->bstb_id)
@@ -481,7 +483,7 @@ class BSTBInspectionController extends Controller
 
         if ($this->bstbInspection == 0) {
             DB::rollBack();
-            return response()->json(["status" => "error", "message" => "server error"], 500);
+            return ResponseController::json(status: "error", message: "server error", code: 500);
         }
 
         $validator = Validator::make($request->all(), [
@@ -494,7 +496,7 @@ class BSTBInspectionController extends Controller
 
         if ($validator->fails()) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->bstbInspection = DB::table("precise.bstb_setting_and_result")
@@ -508,9 +510,9 @@ class BSTBInspectionController extends Controller
 
         if ($this->bstbInspection == 0) {
             DB::rollBack();
-            return response()->json(["status" => "error", "message" => "server error"], 500);
+            return ResponseController::json(status: "error", message: "server error", code: 500);
         }
         DB::commit();
-        return response()->json(["status" => "ok", "message" => "success update data"], 200);
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 }

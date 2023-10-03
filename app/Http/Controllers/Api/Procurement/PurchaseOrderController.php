@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Procurement;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -21,7 +22,7 @@ class PurchaseOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $sql = DB::table('precise.purchase_order_hd as hd')
             ->whereBetween('purchase_order_date', [$start, $end])
@@ -91,8 +92,9 @@ class PurchaseOrderController extends Controller
             ->get();
 
         if (count($this->purchaseOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->purchaseOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -145,7 +147,7 @@ class PurchaseOrderController extends Controller
         return response()->json($this->purchaseOrder, 200);
     }
 
-    public function joined(Request $request): JsonResponse
+    public function detail(Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
@@ -155,43 +157,43 @@ class PurchaseOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->purchaseOrder = DB::table('purchase_order_hd as hd')
-                ->whereBetween('purchase_order_date', [$start, $end])
-                ->select(
-                    'hd.purchase_order_hd_id',
-                    'hd.purchase_order_number as Nomor PO',
-                    'dt.POSeq as Seq',
-                    'hd.purchase_order_date as Tanggal PO',
-                    DB::raw("
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        $this->purchaseOrder = DB::table('purchase_order_hd as hd')
+            ->whereBetween('purchase_order_date', [$start, $end])
+            ->select(
+                'hd.purchase_order_hd_id',
+                'hd.purchase_order_number as Nomor PO',
+                'dt.POSeq as Seq',
+                'hd.purchase_order_date as Tanggal PO',
+                DB::raw("
                         CONCAT(pt.purchase_type_code, ' - ', pt.purchase_type_name) as 'Group PO',
                         CONCAT(sp.`supplier_code`, ' - ', sp.`supplier_name`) 'Supplier'
                     "),
-                    'hd.delivery_date1 as Tanggal kirim',
-                    'hd.delivery_date2 as Tanggal sampai',
-                    DB::raw("CONCAT(wr.warehouse_code, ' - ', wr.warehouse_name) as 'Gudang'"),
-                    'p.PPNmbr as Nomor PR',
-                    'pr.product_code as Kode barang',
-                    'pr.product_name as Nama barang',
-                    'dt.purchase_order_qty as Qty',
-                    'dt.uom_code as UOM',
-                    'dt.purchase_order_std_qty as Qty std',
-                    'dt.uom_code_std as UOM std',
-                    'dt.packing_uom as Packing UOM',
-                    'dt.purchase_order_price as Harga',
-                    'dt.purchase_order_qty_price as Qty harga',
-                    'dt.disc1 as Disc 1',
-                    'dt.disc2 as Disc 2',
-                    'dt.disc3 as Disc 3',
-                    'dt.bruto as Bruto',
-                    'dt.net as Net',
-                    'dt.ppn as PPN',
-                    'dt.netto as Netto',
-                    'hd.purchase_order_description as Keterangan',
-                    'dt.grn_qty as Qty GRN',
-                    'dt.grn_std_qty as Qty GRN std',
-                    DB::raw("
+                'hd.delivery_date1 as Tanggal kirim',
+                'hd.delivery_date2 as Tanggal sampai',
+                DB::raw("CONCAT(wr.warehouse_code, ' - ', wr.warehouse_name) as 'Gudang'"),
+                'p.PPNmbr as Nomor PR',
+                'pr.product_code as Kode barang',
+                'pr.product_name as Nama barang',
+                'dt.purchase_order_qty as Qty',
+                'dt.uom_code as UOM',
+                'dt.purchase_order_std_qty as Qty std',
+                'dt.uom_code_std as UOM std',
+                'dt.packing_uom as Packing UOM',
+                'dt.purchase_order_price as Harga',
+                'dt.purchase_order_qty_price as Qty harga',
+                'dt.disc1 as Disc 1',
+                'dt.disc2 as Disc 2',
+                'dt.disc3 as Disc 3',
+                'dt.bruto as Bruto',
+                'dt.net as Net',
+                'dt.ppn as PPN',
+                'dt.netto as Netto',
+                'hd.purchase_order_description as Keterangan',
+                'dt.grn_qty as Qty GRN',
+                'dt.grn_std_qty as Qty GRN std',
+                DB::raw("
                         CONCAT(hd.requested_by, ' - ', e.employee_name) as 'Requested by',
                         CASE 
                             WHEN hd.`po_status` = 'A' THEN 'Active'
@@ -200,30 +202,42 @@ class PurchaseOrderController extends Controller
                             ELSE NULL
                         END as 'Status PO'
                     "),
-                    'hd.created_on as Tanggal input',
-                    'hd.created_by as Diinput oleh',
-                    'hd.updated_on as Tanggal update',
-                    'hd.updated_by as Diedit oleh'
-                )->join('precise.purchase_order_dt as dt', 'hd.purchase_order_number', '=', 'dt.PONmbr')
-                ->leftJoin('precise.supplier as sp', 'hd.supplier_id', '=', 'sp.supplier_id')
-                ->leftJoin('precise.warehouse as wr', 'hd.warehouse_id', '=', 'wr.warehouse_id')
-                ->leftJoin('precise.purchase_request_dt as p', 'dt.purchase_request_dt_id', '=', 'p.purchase_request_dt_id')
-                ->leftJoin('precise.product as pr', 'dt.product_id', '=', 'pr.product_id')
-                ->leftJoin('precise.purchase_type as pt', 'hd.purchase_type_id', '=', 'pt.purchase_type_id')
-                ->leftJoin('precise.cost_center as cc', 'dt.cost_center_id', '=', 'cc.cost_center_id')
-                ->leftJoin('precise.employee as e', 'hd.requested_by', '=', 'e.employee_nik')
-                ->orderBy('hd.purchase_order_number')
-                ->orderBy('dt.purchase_order_seq')
-                ->get();
+                'hd.created_on as Tanggal input',
+                'hd.created_by as Diinput oleh',
+                'hd.updated_on as Tanggal update',
+                'hd.updated_by as Diedit oleh'
+            )->join('precise.purchase_order_dt as dt', 'hd.purchase_order_number', '=', 'dt.PONmbr')
+            ->leftJoin('precise.supplier as sp', 'hd.supplier_id', '=', 'sp.supplier_id')
+            ->leftJoin('precise.warehouse as wr', 'hd.warehouse_id', '=', 'wr.warehouse_id')
+            ->leftJoin('precise.purchase_request_dt as p', 'dt.purchase_request_dt_id', '=', 'p.purchase_request_dt_id')
+            ->leftJoin('precise.product as pr', 'dt.product_id', '=', 'pr.product_id')
+            ->leftJoin('precise.purchase_type as pt', 'hd.purchase_type_id', '=', 'pt.purchase_type_id')
+            ->leftJoin('precise.cost_center as cc', 'dt.cost_center_id', '=', 'cc.cost_center_id')
+            ->leftJoin('precise.employee as e', 'hd.requested_by', '=', 'e.employee_nik')
+            ->orderBy('hd.purchase_order_number')
+            ->orderBy('dt.purchase_order_seq')
+            ->get();
 
-            if (count($this->purchaseOrder) == 0)
-                return response()->json(["status" => "error", "data" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->purchaseOrder], 200);
-        }
+        if (count($this->purchaseOrder) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 
     public function create(Request $request): JsonResponse
     {
+        $data = $request->json()->all();
+        $validator = Validator::make($data, [
+            'oem_order_number'      => 'required',
+            'oem_order_date'        => 'required|date_format:Y-m-d',
+            'customer_id'           => 'required|exists:customer,customer_id',
+            'desc'                  => 'nullable',
+            'oem_order_type_id'     => 'required|exists:oem_order_type,oem_order_type_id',
+
+        ]);
+        if ($validator->fails()) {
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
         DB::beginTransaction();
         try {
             $header = $request->toArray();
@@ -270,37 +284,37 @@ class PurchaseOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-        } else {
-            $sql = DB::table('precise.purchase_order_hd as hd')
-                ->where('hd.po_status', '!=', 'X')
-                ->whereBetween('hd.purchase_order_date', [$start, $end])
-                ->select(
-                    'hd.purchase_order_hd_id',
-                    'dt.purchase_order_dt_id',
-                    'dt.purchase_order_qty',
-                    'dt.product_id',
-                    'dt.uom_code',
-                    DB::raw("SUM(IFNULL(gd.grn_qty, 0)) AS 'qtyTerima'")
-                )
-                ->join('precise.purchase_order_dt as dt', 'hd.purchase_order_hd_id', '=', 'dt.purchase_order_hd_id')
-                ->leftJoin('precise.grn_dt as gd', 'dt.purchase_order_dt_id', '=', 'gd.purchase_order_dt_id')
-                ->groupBy('hd.purchase_order_hd_id', 'dt.purchase_order_dt_id', 'dt.purchase_order_qty', 'dt.product_id', 'dt.uom_code');
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        $sql = DB::table('precise.purchase_order_hd as hd')
+            ->where('hd.po_status', '!=', 'X')
+            ->whereBetween('hd.purchase_order_date', [$start, $end])
+            ->select(
+                'hd.purchase_order_hd_id',
+                'dt.purchase_order_dt_id',
+                'dt.purchase_order_qty',
+                'dt.product_id',
+                'dt.uom_code',
+                DB::raw("SUM(IFNULL(gd.grn_qty, 0)) AS 'qtyTerima'")
+            )
+            ->join('precise.purchase_order_dt as dt', 'hd.purchase_order_hd_id', '=', 'dt.purchase_order_hd_id')
+            ->leftJoin('precise.grn_dt as gd', 'dt.purchase_order_dt_id', '=', 'gd.purchase_order_dt_id')
+            ->groupBy('hd.purchase_order_hd_id', 'dt.purchase_order_dt_id', 'dt.purchase_order_qty', 'dt.product_id', 'dt.uom_code');
 
-            $this->purchaseOrder = DB::table(DB::raw("({$sql->toSql()})source"))
-                ->mergeBindings($sql)
-                ->where(DB::raw("source.purchase_order_qty - source.qtyTerima"), '>', 0)
-                ->select(
-                    'hd.purchase_order_hd_id',
-                    'hd.purchase_order_number as Nomor PO',
-                    'hd.purchase_order_date as Tanggal PO',
-                    'source.product_id',
-                    'pr.product_code as Kode Barang',
-                    'pr.product_name as Nama Barang',
-                    'source.uom_code as UOM',
-                    'source.purchase_order_qty as Jumlah Pesanan',
-                    'source.qtyTerima as Jumlah Terima',
-                    DB::raw("
+        $this->purchaseOrder = DB::table(DB::raw("({$sql->toSql()})source"))
+            ->mergeBindings($sql)
+            ->where(DB::raw("source.purchase_order_qty - source.qtyTerima"), '>', 0)
+            ->select(
+                'hd.purchase_order_hd_id',
+                'hd.purchase_order_number as Nomor PO',
+                'hd.purchase_order_date as Tanggal PO',
+                'source.product_id',
+                'pr.product_code as Kode Barang',
+                'pr.product_name as Nama Barang',
+                'source.uom_code as UOM',
+                'source.purchase_order_qty as Jumlah Pesanan',
+                'source.qtyTerima as Jumlah Terima',
+                DB::raw("
                         source.purchase_order_qty - source.qtyTerima as Sisa,
                         TRUNCATE((source.`qtyTerima`/source.`purchase_order_qty`),2) 'Persentase',
                         CONCAT(pt.`purchase_type_code`, ' - ', pt.`purchase_type_name`) 'Group PO',
@@ -318,46 +332,39 @@ class PurchaseOrderController extends Controller
                             ELSE 'UNKNOWN'
                         END 'Status PO'	 
                     ")
-                )
-                ->leftJoin('precise.purchase_order_hd as hd', 'source.purchase_order_hd_id', '=', 'hd.purchase_order_hd_id')
-                ->leftJoin('precise.supplier as sp', 'hd.supplier_id', '=', 'sp.supplier_id')
-                ->leftJoin('precise.purchase_type as pt', 'hd.purchase_type_id', '=', 'pt.purchase_type_id')
-                ->leftJoin('precise.product as pr', 'source.product_id', '=', 'pr.product_id')
-                ->get();
+            )
+            ->leftJoin('precise.purchase_order_hd as hd', 'source.purchase_order_hd_id', '=', 'hd.purchase_order_hd_id')
+            ->leftJoin('precise.supplier as sp', 'hd.supplier_id', '=', 'sp.supplier_id')
+            ->leftJoin('precise.purchase_type as pt', 'hd.purchase_type_id', '=', 'pt.purchase_type_id')
+            ->leftJoin('precise.product as pr', 'source.product_id', '=', 'pr.product_id')
+            ->get();
 
-            return response()->json(["data" => $this->purchaseOrder]);
-        }
+        if (count($this->purchaseOrder) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 
-    public function outstandingDetail(Request $request): JsonResponse
+    public function outstandingDetail($id, $product): JsonResponse
     {
-        $po = $request->get('purchase_order_hd_id');
-        $product = $request->get('product_id');
+        $this->purchaseOrder = DB::table('precise.purchase_order_hd as hd')
+            ->where('hd.purchase_order_hd_id', $id)
+            ->where('pr.product_id', $product)
+            ->select(
+                'gh.grn_number as Nomor GRN',
+                'gh.grn_date as Tanggal GRN',
+                'gd.grn_qty as Jumlah kedatangan',
+                'dt.uom_code as UOM'
+            )
+            ->join('precise.purchase_order_dt as dt', 'hd.purchase_order_hd_id', '=', 'dt.purchase_order_hd_id')
+            ->leftJoin('precise.grn_dt as gd', 'dt.purchase_order_dt_id', '=', 'gd.purchase_order_dt_id')
+            ->leftJoin('precise.grn_hd as gh', 'gd.grn_hd_id', '=', 'gh.grn_hd_id')
+            ->leftJoin('precise.product as pr', 'dt.product_id', '=', 'pr.product_id')
+            ->get();
 
-        $validator = Validator::make($request->all(), [
-            'purchase_order_hd_id'  => 'required',
-            'product_id'            => 'required'
-        ]);
+        if (count($this->purchaseOrder) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-        } else {
-            $this->purchaseOrder = DB::table('precise.purchase_order_hd as hd')
-                ->where('hd.purchase_order_hd_id', $po)
-                ->where('pr.product_id', $product)
-                ->select(
-                    'gh.grn_number as Nomor GRN',
-                    'gh.grn_date as Tanggal GRN',
-                    'gd.grn_qty as Jumlah kedatangan',
-                    'dt.uom_code as UOM'
-                )
-                ->join('precise.purchase_order_dt as dt', 'hd.purchase_order_hd_id', '=', 'dt.purchase_order_hd_id')
-                ->leftJoin('precise.grn_dt as gd', 'dt.purchase_order_dt_id', '=', 'gd.purchase_order_dt_id')
-                ->leftJoin('precise.grn_hd as gh', 'gd.grn_hd_id', '=', 'gh.grn_hd_id')
-                ->leftJoin('precise.product as pr', 'dt.product_id', '=', 'pr.product_id')
-                ->get();
-
-            return response()->json(["data" => $this->purchaseOrder]);
-        }
+        return ResponseController::json(status: "ok", data: $this->purchaseOrder, code: 200);
     }
 }

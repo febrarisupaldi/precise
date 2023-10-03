@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\Production\Melamine;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -10,7 +12,7 @@ use Illuminate\Support\Facades\Validator;
 class BSTBController extends Controller
 {
     private $bstb;
-    public function showMachineByDateShift($date, $shift)
+    public function showMachineByDateShift($date, $shift): JsonResponse
     {
         $this->bstb = DB::table("precise.bstb")
             ->where('bstb_date', $date)
@@ -24,29 +26,17 @@ class BSTBController extends Controller
             ->get();
 
         if (count($this->bstb) == 0)
-            return response()->json(['status' => 'error', 'data' => 'not found'], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(['status' => 'ok', 'data' => $this->bstb], 200);
+        return ResponseController::json(status: "ok", data: $this->bstb, code: 200);
     }
 
-    public function showMachineByDateShiftSetter(Request $request)
+    public function showMachineByDateShiftSetter($date, $shift, $setter): JsonResponse
     {
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'bstb_date'         =>  'required|date_format:Y-m-d',
-                'bstb_shift'        =>  'required',
-                'bstb_setter_id'    =>  'required'
-            ]
-        );
-
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
         $this->bstb = DB::table("precise.bstb")
-            ->where('bstb_date', $request->bstb_date)
-            ->where('bstb_shift', $request->bstb_shift)
-            ->where('bstb_setter_id', $request->bstb_setter_id)
+            ->where('bstb_date', $date)
+            ->where('bstb_shift', $shift)
+            ->where('bstb_setter_id', $setter)
             ->where('bstb_kw_status', 1)
             ->select(
                 'bstb_mmac_loc',
@@ -56,33 +46,20 @@ class BSTBController extends Controller
             ->get();
 
         if (count($this->bstb) == 0)
-            return response()->json(['status' => 'error', 'data' => 'not found'], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(['status' => 'ok', 'data' => $this->bstb], 200);
+        return ResponseController::json(status: "ok", data: $this->bstb, code: 200);
     }
 
-    public function showBSTBByDateShiftMachine(Request $request)
+    public function showBSTBByDateShiftMachine($date, $shift, $machine, $setter): JsonResponse
     {
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'bstb_date'         =>  'required|date_format:Y-m-d',
-                'bstb_shift'        =>  'required',
-                'bstb_mmac_loc'     =>  'required',
-                'bstb_setter_id'    =>  'nullable'
-            ]
-        );
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
-
-        if ($request->bstb_setter_id == null || empty($request->bstb_setter_id))
+        if ($setter == null || empty($setter))
 
             $this->bstb = DB::table('precise.bstb as bs')
-                ->where('bstb_date', $request->bstb_date)
-                ->where('bstb_shift', $request->bstb_shift)
-                ->where('bstb_mmac_loc', $request->bstb_mmac_loc)
+                ->where('bstb_date', $date)
+                ->where('bstb_shift', $shift)
+                ->where('bstb_mmac_loc', $machine)
                 ->where('bstb_kw_status', 1)
                 ->select(
                     'bs.bstb_num',
@@ -105,10 +82,10 @@ class BSTBController extends Controller
                 ->get();
         else
             $this->bstb = DB::table('precise.bstb as bs')
-                ->where('bstb_date', $request->bstb_date)
-                ->where('bstb_shift', $request->bstb_shift)
-                ->where('bstb_mmac_loc', $request->bstb_mmac_loc)
-                ->where('bstb_setter_id', $request->bstb_setter_id)
+                ->where('bstb_date', $date)
+                ->where('bstb_shift', $shift)
+                ->where('bstb_mmac_loc', $machine)
+                ->where('bstb_setter_id', $setter)
                 ->where('bstb_kw_status', 1)
                 ->select(
                     'bs.bstb_num',
@@ -131,12 +108,12 @@ class BSTBController extends Controller
                 ->get();
 
         if (count($this->bstb) == 0)
-            return response()->json(['status' => 'error', 'data' => 'not found'], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(['status' => 'ok', 'data' => $this->bstb], 200);
+        return ResponseController::json(status: "ok", data: $this->bstb, code: 200);
     }
 
-    public function showByBSTBNumber($number)
+    public function showByBSTBNumber($number): JsonResponse
     {
         $this->bstb = DB::table("precise.bstb as bs")
             ->where("bs.bstb_num", $number)
@@ -158,43 +135,54 @@ class BSTBController extends Controller
                 'bs.bstb_setter_id',
                 'dtk2.NAMA AS bstb_setter_name',
                 'bs.bstb_pprh_id',
+                'p1.product_id as product_id_gip',
                 'bs.bstb_ppd_id',
                 'bs.bstb_ppd_name',
                 'bs.bstb_op_qty',
+                'p2.product_id as product_id_fg',
+                'bs.bstb_packing_ppd_id',
+                'bs.bstb_packing_ppd_name',
+                'bs.bstb_packing_qty',
+                'bs.bstb_packing_std',
+                'bs.bstb_retail_num',
+                'bs.bstb_retail_date',
+                'bs.bstb_retail_pprh_id',
+                'bs.bstb_retail_qty',
                 'bs.bstb_ins_date',
                 'bs.bstb_ins_by'
             )
             ->leftJoin("dbhrd.newdatakar as dtk", "bs.bstb_opr_id", "=", "dtk.NIP")
             ->leftJoin("dbhrd.newdatakar as dtk2", "bs.bstb_setter_id", "=", "dtk2.NIP")
+            ->leftJoin("precise.product as p1", "bs.bstb_ppd_id", "=", "p1.product_code")
+            ->leftJoin("precise.product as p2", "bs.bstb_packing_ppd_id", "=", "p2.product_code")
             ->get();
 
-        if (count($this->bstb) == 0) {
-            return response()->json(["status" => "error", "message" => "not found"], 404);
-        }
+        if (count($this->bstb) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "data" => $this->bstb], 200);
+        return ResponseController::json(status: "ok", data: $this->bstb, code: 200);
     }
 
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $validator = Validator::make(
             $request->all(),
             [
                 'bstb_date'                 =>  'required|date_format:Y-m-d',
                 'bstb_opr_id'               =>  'required',
-                'bstb_shift'                =>  'required',
-                'bstb_setter_id'            =>  'required',
+                'bstb_shift'                =>  'required|numeric',
+                'bstb_setter_id'            =>  'required|numeric',
                 'bstb_mmac_loc'             =>  'required',
                 'bstb_cav_num'              =>  'required',
                 'bstb_item'                 =>  'required',
                 'bstb_design'               =>  'required',
-                'bstb_material_lot_number'  =>  'required',
+                'bstb_material_lot_number'  =>  'required|numeric',
                 'created_by'                =>  'required'
             ]
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -238,40 +226,45 @@ class BSTBController extends Controller
                     'bstb_ins_by'               => $request->created_by
                 ]
             ];
-            DB::table("precise.bstb")
+            $check = DB::table("precise.bstb")
                 ->insert($values);
+
+            if ($check < 3) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: "error input data", code: 500);
+            }
 
             $check = DB::statement("CALL precise.system_increment_transaction_counter(7, :bstb_date)", array(':bstb_date' => $request->bstb_date));
 
             if (!$check) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "error insert data"], 500);
+                return ResponseController::json(status: "error", message: "error input data", code: 500);
             }
 
             $number = DB::select(DB::raw("select @bstbNumber as number"));
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => $number], 200);
+            return ResponseController::json(status: "ok", message: "success input data", id: $number['number'], code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function updateMaterial(Request $request)
+    public function updateMaterial(Request $request): JsonResponse
     {
         $validator = Validator::make(
             $request->all(),
             [
                 'bstb_num'                  =>  'required',
-                'bstb_opr_id'               =>  'required',
-                'bstb_setter_id'            =>  'required',
-                'bstb_material_lot_number'  =>  'required',
+                'bstb_opr_id'               =>  'required|numeric',
+                'bstb_setter_id'            =>  'required|numeric',
+                'bstb_material_lot_number'  =>  'required|numeric',
                 'bstb_upd_by'               =>  'required'
             ]
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -288,7 +281,7 @@ class BSTBController extends Controller
 
             if ($this->bstb == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "error update data"], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
 
             $this->bstb = DB::table("precise.bstb")
@@ -303,7 +296,7 @@ class BSTBController extends Controller
 
             if ($this->bstb == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "error update data"], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
 
             $this->bstb = DB::table("precise.bstb")
@@ -318,14 +311,14 @@ class BSTBController extends Controller
 
             if ($this->bstb == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "error update data"], 500);
+                return ResponseController::json(status: "error", message: "error update data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => "update data success"], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }

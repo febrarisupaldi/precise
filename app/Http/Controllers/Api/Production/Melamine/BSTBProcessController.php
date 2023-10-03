@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Production\Melamine;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,10 +60,9 @@ class BSTBProcessController extends Controller
             ->union($union)
             ->get();
 
-        if (count($this->process) == 0) {
-            return response()->json(["status" => "error", "message" => "not found"], 404);
-        }
+        if (count($this->process) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "data" => $this->process], 200);
+        return ResponseController::json(status: "ok", data: $this->process, code: 200);
     }
 }

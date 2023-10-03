@@ -2,21 +2,23 @@
 
 namespace App\Http\Controllers\Api\Sales;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class BookingStockController extends Controller
 {
-    private $stock;
+    private $bookingStock;
 
-    public function getBySalesmanCustomerAndStatus($sales)
+    public function getBySalesmanCustomerAndStatus($sales, Request $request): JsonResponse
     {
-        $customer = request('customer');
-        $status = request('status');
+        $customer = $request->get('customer');
+        $status = $request->get('status');
 
-        $this->stock = DB::table('precise.stock_booking as sb')
+        $this->bookingStock = DB::table('precise.stock_booking as sb')
             ->select(
                 'sb.stock_booking_id',
                 'sb.salesman_id',
@@ -51,25 +53,25 @@ class BookingStockController extends Controller
             ->where('sb.salesman_id', $sales);
 
         if ($customer != null) {
-            $this->stock = $this->stock
+            $this->bookingStock = $this->bookingStock
                 ->where('sb.customer_id', $customer);
         }
 
         if ($status != null) {
-            $this->stock = $this->stock
+            $this->bookingStock = $this->bookingStock
                 ->where('sb.booking_status_code', $status);
         }
 
-        $this->stock = $this->stock->orderBy('sb.stock_booking_id', 'desc')
+        $this->bookingStock = $this->bookingStock->orderBy('sb.stock_booking_id', 'desc')
             ->get();
 
-        if (count($this->stock) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 500);
+        if (count($this->bookingStock) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "data" => $this->stock], 200);
+        return ResponseController::json(status: "ok", data: $this->bookingStock, code: 200);
     }
 
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'salesman_id'           => 'required|exists:users,user_id',
@@ -84,9 +86,9 @@ class BookingStockController extends Controller
             'created_by'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
-        $this->stock = DB::table('precise.stock_booking')
+        $this->bookingStock = DB::table('precise.stock_booking')
             ->insert([
                 'salesman_id'           => $request->salesman_id,
                 'product_id'            => $request->product_id,
@@ -100,9 +102,9 @@ class BookingStockController extends Controller
                 'created_by'            => $request->created_by
             ]);
 
-        if ($this->stock == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->bookingStock == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 }

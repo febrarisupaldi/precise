@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Production\Plastic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -27,7 +28,10 @@ class PackagingReturnController extends Controller
             )
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->return], 200);
+        if (count($this->return) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->return, code: 200);
     }
 
     public function showDetail($id, $inspected_date): JsonResponse
@@ -73,8 +77,9 @@ class PackagingReturnController extends Controller
             ->get();
 
         if (count($this->return) == 0)
-            return response()->json(["status" => "error", "data" => $this->return, "message" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->return], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->return, code: 200);
     }
 
     function getCummulativeByID($headerID)
@@ -97,9 +102,9 @@ class PackagingReturnController extends Controller
         DB::statement("SET sql_mode=(SELECT CONCAT(@@sql_mode, ',ONLY_FULL_GROUP_BY'));");
 
         if (count($this->return) == 0)
-            return response()->json(["status" => "error", "message" => "not found"], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "data" => $this->return], 200);
+        return ResponseController::json(status: "ok", data: $this->return, code: 200);
     }
 
     public function create(Request $request): JsonResponse
@@ -113,7 +118,7 @@ class PackagingReturnController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -128,20 +133,21 @@ class PackagingReturnController extends Controller
 
             if (empty($id)) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed insert data'], 500);
+                return ResponseController::json(status: "error", message: "error input data", code: 500);
+            }
+
+            $validator = Validator::make($data, [
+                "detail.*.packaging_numbering_id"    => "required",
+                "detail.*.is_usable"                 => "required",
+                "detail.*.desc"                      => "nullable"
+            ]);
+
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
             }
 
             foreach ($data["detail"] as $detail) {
-                $validator = Validator::make($detail, [
-                    "packaging_numbering_id"    => "required",
-                    "is_usable"                 => "required",
-                    "desc"                      => "nullable"
-                ]);
-
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-                }
 
                 $value = [
                     "packaging_return_hd_id"    => $id,
@@ -155,7 +161,7 @@ class PackagingReturnController extends Controller
 
                 if ($this->return == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()]);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
 
                 $this->return = DB::table("precise.packaging_numbering")
@@ -163,13 +169,18 @@ class PackagingReturnController extends Controller
                     ->update([
                         "status_code"   => $detail["status_code"]
                     ]);
+
+                if ($this->return == 0) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
+                }
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+            return ResponseController::json(status: "ok", message: "sucess input data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -183,7 +194,7 @@ class PackagingReturnController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->return = DB::table("precise.packaging_return_hd")
@@ -195,8 +206,9 @@ class PackagingReturnController extends Controller
             ]);
 
         if ($this->return == 0)
-            return response()->json(['status' => 'ok', 'message' => 'failed input data'], 500);
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function createDetail(Request $request)
@@ -211,7 +223,7 @@ class PackagingReturnController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
 
@@ -225,7 +237,7 @@ class PackagingReturnController extends Controller
 
         if ($this->return == 0) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => "server error"], 500);
+            return ResponseController::json(status: "error", message: "server error", code: 500);
         }
 
         $this->return = DB::table("precise.packaging_numbering")
@@ -236,11 +248,11 @@ class PackagingReturnController extends Controller
 
         if ($this->return == 0) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => "server error"], 500);
+            return ResponseController::json(status: "error", message: "server error", code: 500);
         }
 
         DB::commit();
-        return response()->json(['status' => 'ok', 'message' => 'success insert data'], 200);
+        return ResponseController::json(status: "ok", message: "sucess input data", code: 200);
     }
 
     public function createReturnClosed(Request $request)
@@ -251,7 +263,7 @@ class PackagingReturnController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->return = DB::table("precise.packaging_return_hd")
@@ -260,10 +272,9 @@ class PackagingReturnController extends Controller
                 "status_code"   => $request->status_code
             ]);
 
-        if ($this->return == 0) {
-            return response()->json(['status' => 'error', 'message' => "error update data"], 500);
-        }
+        if ($this->return == 0)
+            return ResponseController::json(status: "error", message: "error update data", code: 500);
 
-        return response()->json(['status' => 'ok', 'message' => "success update data"], 200);
+        return ResponseController::json(status: "ok", message: "success update data", code: 200);
     }
 }

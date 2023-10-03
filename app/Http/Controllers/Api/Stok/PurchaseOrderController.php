@@ -10,11 +10,11 @@ use Illuminate\Support\Facades\Validator;
 
 class PurchaseOrderController extends Controller
 {
-    private $purchase;
+    private $purchaseOrder;
 
     public function show($id): JsonResponse
     {
-        $this->purchase = DB::table("dbstok.po_hd", "hd")
+        $this->purchaseOrder = DB::table("dbstok.po_hd", "hd")
             ->select(
                 'dt.po_dt_id',
                 'dt.po_dt_seq',
@@ -36,14 +36,14 @@ class PurchaseOrderController extends Controller
             ->where('hd.po_hd_id', $id)
             ->orderBy('dt.po_dt_seq')
             ->get();
-        if (empty($this->purchase))
+        if (empty($this->purchaseOrder))
             return response()->json("not found", 404);
-        return response()->json($this->purchase, 200);
+        return response()->json($this->purchaseOrder, 200);
     }
 
     public function getCummulativeByDateAndSalesman($sales, $poYear): JsonResponse
     {
-        $this->purchase = DB::table("dbstok.po_hd")
+        $this->purchaseOrder = DB::table("dbstok.po_hd")
             ->where("salesman_id", "$sales")
             ->where("po_tgl", 'like', "$poYear" . '%')
             ->select(
@@ -60,14 +60,14 @@ class PurchaseOrderController extends Controller
             ->groupBy('po_tgl', 'salesman_id')
             ->get();
 
-        if (count($this->purchase) == 0)
+        if (count($this->purchaseOrder) == 0)
             return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->purchase], 200);
+        return response()->json(["status" => "ok", "data" => $this->purchaseOrder], 200);
     }
 
     public function getBySalesmanAndStatus($sales, $status = null): JsonResponse
     {
-        $this->purchase = DB::table("dbstok.po_hd as hd")
+        $this->purchaseOrder = DB::table("dbstok.po_hd as hd")
             ->select(
                 'hd.po_hd_id',
                 'hd.po_tgl',
@@ -94,15 +94,15 @@ class PurchaseOrderController extends Controller
             ->where('ad.username', $sales);
 
         if ($status == null) {
-            $this->purchase = $this->purchase->orderByDesc('hd.po_hd_id')
+            $this->purchaseOrder = $this->purchaseOrder->orderByDesc('hd.po_hd_id')
                 ->get();
         } else {
-            $this->purchase = $this->purchase->where('hd.po_status', $status)->orderByDesc('hd.po_hd_id')
+            $this->purchaseOrder = $this->purchaseOrder->where('hd.po_status', $status)->orderByDesc('hd.po_hd_id')
                 ->get();
         }
-        if (count($this->purchase) == 0)
+        if (count($this->purchaseOrder) == 0)
             return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->purchase], 200);
+        return response()->json(["status" => "ok", "data" => $this->purchaseOrder], 200);
     }
 
     public function createHeader(Request $request): JsonResponse
@@ -117,7 +117,7 @@ class PurchaseOrderController extends Controller
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
         } else {
-            $this->purchase = DB::table('dbstok.po_hd')
+            $this->purchaseOrder = DB::table('dbstok.po_hd')
                 ->insert([
                     "po_tgl"        => $request->po_tgl,
                     "customer_id"   => $request->customer_id,
@@ -126,7 +126,7 @@ class PurchaseOrderController extends Controller
                     "created_by"    => $request->created_by,
                 ]);
 
-            if ($this->purchase == 0) {
+            if ($this->purchaseOrder == 0) {
                 return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
             }
 

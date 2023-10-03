@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return "Can't display API";
 });
-Route::post('test', 'Api\Master\TestController@testBuilder');
+Route::post('test', 'Api\Master\TestController@testValidator');
 Route::post('send-message', 'Api\UtilityController@sendMessageTelegram');
 Route::group(
     [
@@ -86,6 +86,7 @@ Route::group(
                 Route::get('stock-diagram/delivery-order-in-process/warehouse/{whid}/product/{productid}', 'Api\Logistic\StockDiagramController@getDOInProcess');
                 Route::get('stock-diagram/sales-order-history/warehouse/{whid}/product/{productid}', 'Api\Logistic\StockDiagramController@getSOHistory');
                 Route::get('stock-diagram/warehouse/{id}', 'Api\Logistic\StockDiagramController@index');
+                Route::get('stock-diagram/warehouse/{id}/product/{product}', 'Api\Logistic\StockDiagramController@getStockDiagramByWarehouseAndProduct');
                 Route::get('stock-diagram/2/warehouse/{id}', 'Api\Logistic\StockDiagramController@getStockDiagram2');
                 Route::get('stock-diagram/2/item-code', 'Api\Logistic\StockDiagramController@getStockDiagram2ByItemCode');
 
@@ -115,6 +116,12 @@ Route::group(
                 Route::get('warehouse-rack-in/{id}/date/{date}', 'Api\Logistic\WarehouseRackInController@show');
                 Route::post('warehouse-rack-in', 'Api\Logistic\WarehouseRackInController@create');
                 Route::delete('warehouse-rack-in', 'Api\Logistic\WarehouseRackInController@destroy');
+
+                Route::get('warehouse-rack-out', 'Api\Logistic\WarehouseRackOutController@getByDate');
+                Route::get('warehouse-rack-out/detail/{id}', 'Api\Logistic\WarehouseRackOutController@getDetailByHeaderId');
+                Route::post('warehouse-rack-out', 'Api\Logistic\WarehouseRackOutController@createHeader');
+                Route::post('warehouse-rack-out/detail', 'Api\Logistic\WarehouseRackOutController@createDetail');
+                Route::put('warehouse-rack-out/status', 'Api\Logistic\WarehouseRackOutController@updateCartStatus');
             }
         );
         Route::group(
@@ -641,12 +648,12 @@ Route::group(
                 });
 
                 Route::prefix('melamine')->group(function () {
-                    Route::get('bstb', 'Api\Production\Melamine\BSTBController@showBSTBByDateShiftMachine');
-                    Route::get('bstb/number/{number}', 'Api\Production\Melamine\BSTBController@showByBSTBNumber');
-                    Route::get('bstb/machine', 'Api\Production\Melamine\BSTBController@showMachineByDateShiftSetter');
+                    Route::get('bstb/date/{date}/shift/{shift}/machine/{machine}/setter/{setter?}', 'Api\Production\Melamine\BSTBController@showBSTBByDateShiftMachine');
+                    Route::get('bstb/number/{num}', 'Api\Production\Melamine\BSTBController@showByBSTBNumber')->where('num', '.*');
+                    Route::get('bstb/machine/date/{date}/shift/{shift}/setter/{setter}', 'Api\Production\Melamine\BSTBController@showMachineByDateShiftSetter');
                     Route::get('bstb/machine/date/{date}/shift/{shift}', 'Api\Production\Melamine\BSTBController@showMachineByDateShift');
                     Route::post('bstb', 'Api\Production\Melamine\BSTBController@create');
-                    Route::put('bstb/material', 'Api\Production\Melamine\BSTBController@updateMaterial');
+                    Route::put('bstb', 'Api\Production\Melamine\BSTBController@updateMaterial');
 
                     Route::get('bstb-setting-result/check', 'Api\Production\Melamine\BSTBSettingResultController@check');
                     Route::get('bstb-setting-result/number/{number}', 'Api\Production\Melamine\BSTBSettingResultController@showByBSTBNumber');
@@ -663,6 +670,13 @@ Route::group(
                     Route::put('bstb-inspection/close-qc-check', 'Api\Production\Melamine\BSTBInspectionController@closedQCChecked');
 
                     Route::get('bstb-process/number/{number}', 'Api\Production\Melamine\BSTBProcessController@getByNumberAndProcessId');
+
+                    Route::get("material-handling/code/{code}", "Api\Production\Melamine\MaterialHandlingController@showByCode");
+                    Route::get("material-handling/date/{date}", "Api\Production\Melamine\MaterialHandlingController@showByDate");
+                    Route::get("material-handling/detail/{id}", "Api\Production\Melamine\MaterialHandlingController@showDetailByHdId");
+                    Route::post("material-handling", "Api\Production\Melamine\MaterialHandlingController@create");
+                    Route::post("material-handling/detail", "Api\Production\Melamine\MaterialHandlingController@createDetail");
+                    Route::put("material-handling/detail", "Api\Production\Melamine\MaterialHandlingController@updateDetail");
                 });
             }
         );
@@ -694,7 +708,7 @@ Route::group(
                 Route::get('purchase-order', 'Api\Procurement\PurchaseOrderController@index');
                 Route::get('purchase-order/outstanding', 'Api\Procurement\PurchaseOrderController@outstanding');
                 Route::get('purchase-order/outstanding-detail', 'Api\Procurement\PurchaseOrderController@outstandingDetail');
-                Route::get('purchase-order/full', 'Api\Procurement\PurchaseOrderController@joined');
+                Route::get('purchase-order/detail', 'Api\Procurement\PurchaseOrderController@detail');
 
                 Route::get('purchase-order/{id}', 'Api\Procurement\PurchaseOrderController@show');
                 Route::post('purchase-order', 'Api\Procurement\PurchaseOrderController@create');
@@ -708,10 +722,12 @@ Route::group(
         Route::group(
             ['prefix' => 'ppic', 'middleware' => 'jwt'],
             function () {
-                Route::get('work-order', 'Api\PPIC\WorkOrderController@index');
-                Route::get('work-order/import/bom-product', 'Api\PPIC\WorkOrderController@showImportCheckBOMAndProduct');
-                Route::get('work-order/import/bom-mixing', 'Api\PPIC\WorkOrderController@showImportCheckBOMMixing');
-                Route::get('work-order/import/check-product-workcenter', 'Api\PPIC\WorkOrderController@showImportCheckProductAndWorkcenter');
+                //modified parameter
+                Route::get('work-order/import/bom-code/{bomCode}/product/{product}', 'Api\PPIC\WorkOrderController@showImportCheckBOMAndProduct');
+                Route::get('work-order/import/bom-mixing/{bomId}', 'Api\PPIC\WorkOrderController@showImportCheckBOMMixing');
+                Route::get('work-order/import/product-code/{productCode}/workcenter-code/{workcenterCode}', 'Api\PPIC\WorkOrderController@showImportCheckProductAndWorkcenter');
+                Route::get('work-order/workcenter/{id}/date', 'Api\PPIC\WorkOrderController@index');
+
                 Route::get('work-order/workcenter/{id}', 'Api\PPIC\WorkOrderController@showByWorkcenter');
                 Route::get('work-order/number/{number}/ng/{isNg}', 'Api\PPIC\WorkOrderController@getByWONumber');
                 Route::get('work-order/check', 'Api\PPIC\WorkOrderController@check');
@@ -720,13 +736,19 @@ Route::group(
                 Route::put('work-order', 'Api\PPIC\WorkOrderController@update');
                 Route::delete('work-order', 'Api\PPIC\WorkOrderController@destroy');
 
-                Route::get('production-result', 'Api\PPIC\ProductionResultController@index');
-                Route::get('production-result/approval', 'Api\PPIC\ProductionResultController@showProductionClone');
+                Route::get('production-result/workcenter/{workcenter}', 'Api\PPIC\ProductionResultController@index');
+
+                //modified route name
+                Route::get('production-result/clone', 'Api\PPIC\ProductionResultController@showProductionClone');
+
                 Route::get('production-result/check', 'Api\PPIC\ProductionResultController@check');
                 Route::get('production-result/{id}', 'Api\PPIC\ProductionResultController@show');
                 Route::post('production-result', 'Api\PPIC\ProductionResultController@create');
-                Route::put('production-result/detail', 'Api\PPIC\ProductionResultController@update');
-                Route::put('production-result/approval/detail', 'Api\PPIC\ProductionResultController@approve');
+
+                //modified route name
+                Route::put('production-result', 'Api\PPIC\ProductionResultController@update');
+
+                Route::put('production-result/approval', 'Api\PPIC\ProductionResultController@updateApproval');
                 Route::delete('production-result', 'Api\PPIC\ProductionResultController@destroy');
 
                 Route::get('material-usage', 'Api\PPIC\MaterialUsageController@index');
@@ -739,34 +761,46 @@ Route::group(
         );
 
         Route::group(['prefix' => 'oem', 'middleware' => 'jwt'], function () {
-            Route::get('delivery-order', 'Api\OEM\DeliveryOrderController@index');
-            Route::get('delivery-order/check', 'Api\OEM\DeliveryOrderController@check');
-            Route::get('delivery-order/detail', 'Api\OEM\DeliveryOrderController@joined');
-            Route::get('delivery-order/purchase-order/history', 'Api\OEM\DeliveryOrderController@getHistoryDOByPOAndDate');
+            Route::get('delivery-order/warehouse/{id}', 'Api\OEM\DeliveryOrderController@index');
+
+            //modified parameter
+            Route::get('delivery-order/check/{id}/delivery-status/{deliveryStatus}', 'Api\OEM\DeliveryOrderController@check');
+            Route::get('delivery-order/purchase-order/history/{id}/detail/{detailID}', 'Api\OEM\DeliveryOrderController@getHistoryDOByPOAndDate');
+
+            Route::get('delivery-order/detail/warehouse/{warehouse}', 'Api\OEM\DeliveryOrderController@detail');
             Route::get('delivery-order/purchase-order/validate/{headerID}/{detailID}', 'Api\OEM\DeliveryOrderController@getDOForValidateProduct');
             Route::get('delivery-order/purchase-order/history/{id}', 'Api\OEM\DeliveryOrderController@getHistoryDOByPO');
             Route::get('delivery-order/purchase-order/{id}', 'Api\OEM\DeliveryOrderController@getDOByPO');
+
+            //modified parameter
             Route::get('delivery-order/purchase-order/{id}/status/{status}', 'Api\OEM\DeliveryOrderController@getDOForPO');
-            Route::get('delivery-order/purchase-order-oustanding/schedule', 'Api\OEM\DeliveryOrderController@getOutstandingPOofDeliveryScheduleByDate');
+            Route::get(
+                'delivery-order/purchase-order-oustanding/schedule/product/{product}/customer/{customer}/warehouse/{warehouse}',
+                'Api\OEM\DeliveryOrderController@getOutstandingPOofDeliveryScheduleByDate'
+            );
+
             Route::get('delivery-order/{id}', 'Api\OEM\DeliveryOrderController@show');
             Route::post('delivery-order', 'Api\OEM\DeliveryOrderController@create');
             Route::post('delivery-order/detail', 'Api\OEM\DeliveryOrderController@update');
             Route::put('delivery-order/cancel', 'Api\OEM\DeliveryOrderController@cancel');
+            Route::put('delivery-order/receive', 'Api\OEM\DeliveryOrderController@receive');
             Route::put('delivery-order/print-counter', 'Api\OEM\DeliveryOrderController@printCounter');
             Route::delete('delivery-order', 'Api\OEM\DeliveryOrderController@destroy');
 
-            Route::get('delivery-schedule', 'Api\OEM\DeliveryScheduleController@index');
+            //modified parameter
+            Route::get('delivery-schedule/warehouse/{warehouse}/customer/{customer}', 'Api\OEM\DeliveryScheduleController@index');
+
             Route::get('delivery-schedule/show', 'Api\OEM\DeliveryScheduleController@show');
             Route::get('delivery-schedule/check', 'Api\OEM\DeliveryScheduleController@check');
             Route::post('delivery-schedule', 'Api\OEM\DeliveryScheduleController@create');
             Route::put('delivery-schedule', 'Api\OEM\DeliveryScheduleController@update');
             Route::delete('delivery-schedule', 'Api\OEM\DeliveryScheduleController@destroy');
 
-            Route::get('material-balance/stock-card', 'Api\OEM\MaterialBalanceController@stockCard');
-            Route::get('material-balance/stock-mutation', 'Api\OEM\MaterialBalanceController@stockMutation');
+            Route::get('material-balance/stock-card/material/{material}', 'Api\OEM\MaterialBalanceController@stockCard');
+            Route::get('material-balance/stock-mutation/customer/{customer}', 'Api\OEM\MaterialBalanceController@stockMutation');
 
             Route::get('material-customer', 'Api\OEM\MaterialCustomerController@index');
-            Route::get('material-customer/full', 'Api\OEM\MaterialCustomerController@joined');
+            Route::get('material-customer/detail', 'Api\OEM\MaterialCustomerController@detail');
             Route::get('material-customer/material/{id}', 'Api\OEM\MaterialCustomerController@showMaterial');
             Route::get('material-customer/customer/{id}', 'Api\OEM\MaterialCustomerController@showCustomer');
             Route::get('material-customer/product-customer/{id}', 'Api\OEM\MaterialCustomerController@showProductCustomer');
@@ -774,9 +808,11 @@ Route::group(
             Route::post('material-customer', 'Api\OEM\MaterialCustomerController@create');
             Route::post('material-customer/detail', 'Api\OEM\MaterialCustomerController@update');
 
-            Route::get('material-incoming', 'Api\OEM\MaterialIncomingController@index');
-            Route::get('material-incoming/unallocated', 'Api\OEM\MaterialIncomingController@getMaterialIncommingUnallocated');
-            Route::get('material-incoming/detail', 'Api\OEM\MaterialIncomingController@joined');
+            //modified parameter
+            Route::get('material-incoming/warehouse/{warehouse}', 'Api\OEM\MaterialIncomingController@index');
+            Route::get('material-incoming/detail/warehouse/{warehouse}', 'Api\OEM\MaterialIncomingController@detail');
+
+            Route::get('material-incoming/unallocated', 'Api\OEM\MaterialIncomingController@getMaterialIncomingUnallocated');
             Route::get('material-incoming/{id}', 'Api\OEM\MaterialIncomingController@show');
             Route::post('material-incoming', 'Api\OEM\MaterialIncomingController@create');
             Route::post('material-incoming/detail', 'Api\OEM\MaterialIncomingController@update');
@@ -784,10 +820,16 @@ Route::group(
 
             Route::get('purchase-order', 'Api\OEM\PurchaseOrderController@index');
             Route::get('purchase-order/check', 'Api\OEM\PurchaseOrderController@check');
-            Route::get('purchase-order/full', 'Api\OEM\PurchaseOrderController@joined');
-            Route::get('purchase-order/outstanding/lookup', 'Api\OEM\PurchaseOrderController@outstandingLookup');
-            Route::get('purchase-order/outstanding/schedule', 'Api\OEM\PurchaseOrderController@outstandingSchedule');
-            Route::get('purchase-order/outstanding/validating', 'Api\OEM\PurchaseOrderController@outstandingValidating');
+            Route::get('purchase-order/detail', 'Api\OEM\PurchaseOrderController@detail');
+
+            //modified parameter
+            Route::get('purchase-order/outstanding/lookup/{id}/customer/{customer}/warehouse/{warehouse}', 'Api\OEM\PurchaseOrderController@outstandingLookup');
+            Route::get(
+                'purchase-order/outstanding/schedule/customer/{customer}/warehouse/{warehouse}/order-date/{orderDate}/product-customer/{productCustomer}',
+                'Api\OEM\PurchaseOrderController@outstandingSchedule'
+            );
+            Route::get('purchase-order/outstanding/validation/product/{product}/customer/{customer}', 'Api\OEM\PurchaseOrderController@outstandingValidation');
+
             Route::get('purchase-order/remaining/{id}', 'Api\OEM\PurchaseOrderController@remaining');
             Route::get('purchase-order/{id}', 'Api\OEM\PurchaseOrderController@show');
             Route::post('purchase-order', 'Api\OEM\PurchaseOrderController@create');

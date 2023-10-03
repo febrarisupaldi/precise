@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\QueryController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Api\Master\HelperController;
 use Illuminate\Http\JsonResponse;
 
@@ -15,20 +16,18 @@ class MaterialUsageController extends Controller
 {
     private $materialUsage;
 
-    public function index(Request $request): JsonResponse
+    public function index($workcenter, Request $request): JsonResponse
     {
-        $start = $request->get('start');
-        $end = $request->get('end');
-        $wc = $request->get('workcenter_id');
+        $start = $request->get('start', date('Y-m-d'));
+        $end = $request->get('end', date('Y-m-d'));
         $validator = Validator::make($request->all(), [
             'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'workcenter_id' => 'required'
+            'end'           => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
-        $workcenter = explode("-", $wc);
+        $workcenter = explode("-", $workcenter);
         $this->materialUsage = DB::table('precise.material_usage as mu')
             ->whereIn('wo.workcenter_id', $workcenter)
             ->whereBetween('mu.production_date', [$start, $end])
@@ -68,8 +67,9 @@ class MaterialUsageController extends Controller
             ->get();
 
         if (count($this->materialUsage) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->materialUsage], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->materialUsage, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -133,34 +133,6 @@ class MaterialUsageController extends Controller
             })
             ->get();
 
-        // $this->materialUsage =
-        //     array(
-        //         "usage_id"            => $master->usage_id,
-        //         "production_date"     => $master->production_date,
-        //         "work_order_hd_id"    => $master->work_order_hd_id,
-        //         "PrdNumber"           => $master->PrdNumber,
-        //         "PrdSeq"              => $master->PrdSeq,
-        //         "workcenter_id"       => $master->workcenter_id,
-        //         "workcenter_code"     => $master->workcenter_code,
-        //         "workcenter_name"     => $master->workcenter_name,
-        //         "warehouse_id"        => $master->warehouse_id,
-        //         "warehouse_code"      => $master->warehouse_code,
-        //         "warehouse_name"      => $master->warehouse_name,
-        //         "bom_factor"          => $master->bom_factor,
-        //         "bom_hd_id"           => $master->bom_hd_id,
-        //         "bom_code"            => $master->bom_code,
-        //         "bom_name"            => $master->bom_name,
-        //         "InvtNmbr"            => $master->InvtNmbr,
-        //         "InvtType"            => $master->InvtType,
-        //         "trans_hd_id"         => $master->trans_hd_id,
-        //         "usage_description"   => $master->usage_description,
-        //         "created_on"          => $master->created_on,
-        //         "created_by"          => $master->created_by,
-        //         "updated_on"          => $master->updated_on,
-        //         "updated_by"          => $master->updated_by,
-        //         "detail"              => $detail
-        //     );
-
         $this->materialUsage = array_merge_recursive(
             (array)$master,
             array("detail" => $detail)
@@ -209,8 +181,9 @@ class MaterialUsageController extends Controller
             ->get();
 
         if (count($this->materialUsage) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->materialUsage], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->materialUsage, code: 200);
     }
 
     public function create(Request $request): JsonResponse
@@ -227,7 +200,7 @@ class MaterialUsageController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -248,21 +221,22 @@ class MaterialUsageController extends Controller
 
             if ($id == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $trans_seq = 1;
-            foreach ($data['detail'] as $transdt) {
-                $validator = Validator::make($transdt, [
-                    'material_id'   => 'required|exists:product,product_id',
-                    'material_qty'  => 'required|numeric',
-                    'material_uom'  => 'required|exists:uom,uom_code'
-                ]);
 
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                }
+            $validator = Validator::make($data, [
+                'detail.*.material_id'   => 'required|exists:product,product_id',
+                'detail.*.material_qty'  => 'required|numeric',
+                'detail.*.material_uom'  => 'required|exists:uom,uom_code'
+            ]);
+
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+            }
+            foreach ($data['detail'] as $transdt) {
                 $whDt[] = [
                     'trans_hd_id'           => $id,
                     'trans_number'          => $number,
@@ -289,8 +263,9 @@ class MaterialUsageController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
+
             $PrdSeq = 0;
             $workOrderSeq = DB::table('precise.material_usage')
                 ->where('work_order_hd_id', $data['work_order_hd_id'])
@@ -305,19 +280,18 @@ class MaterialUsageController extends Controller
                 $PrdSeq = 1;
             }
 
-            foreach ($data['detail'] as $d) {
-                $validator = Validator::make($d, [
-                    'material_id'       => 'required|exists:product,product_id',
-                    'material_qty'      => 'required',
-                    'material_uom'      => 'required|exists:uom,uom_code',
-                    'material_std_qty'  => 'required|numeric',
-                    'material_std_uom'  => 'required|exists:uom,uom_code'
-                ]);
+            $validator = Validator::make($data, [
+                'detail.*.material_id'       => 'required|exists:product,product_id',
+                'detail.*.material_qty'      => 'required',
+                'detail.*.material_uom'      => 'required|exists:uom,uom_code'
+            ]);
 
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                }
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+            }
+
+            foreach ($data['detail'] as $d) {
                 $dt[] = [
                     'production_date'       => $data['production_date'],
                     'work_order_hd_id'      => $data['work_order_hd_id'],
@@ -345,21 +319,20 @@ class MaterialUsageController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $trans = DB::table('precise.material_usage')
                 ->where('trans_hd_id', $id)
-                ->select('usage_id')
-                ->first();
+                ->value('usage_id');
 
             DB::select('call precise.`system_increment_transaction_counter`(6, :rDate)', ['rDate' => $data['production_date']]);
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => $trans->usage_id], 200);
+            return ResponseController::json(status: "ok", message: "success input data", id: $trans, code: 500);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -379,142 +352,153 @@ class MaterialUsageController extends Controller
             'reason'                => 'required',
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            DB::beginTransaction();
-            try {
-                DBController::reason($request, "update", $data);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+        }
+        DB::beginTransaction();
+        try {
+            DBController::reason($request, "update", $data);
 
-                DB::table('precise.warehouse_trans_hd')
-                    ->where('trans_hd_id', $data['trans_hd_id'])
-                    ->update([
-                        'trans_date'         => $data['production_date'],
-                        'trans_from'         => $data['warehouse_id'],
-                        'work_order_id'      => $data['work_order_hd_id'],
-                        'work_order_number'  => $data['PrdNumber'],
-                        'updated_by'         => $data['updated_by']
-                    ]);
+            DB::table('precise.warehouse_trans_hd')
+                ->where('trans_hd_id', $data['trans_hd_id'])
+                ->update([
+                    'trans_date'         => $data['production_date'],
+                    'trans_from'         => $data['warehouse_id'],
+                    'work_order_id'      => $data['work_order_hd_id'],
+                    'work_order_number'  => $data['PrdNumber'],
+                    'updated_by'         => $data['updated_by']
+                ]);
 
-                $check = DB::table('precise.warehouse_trans_dt')
-                    ->where('trans_hd_id', $data['trans_hd_id'])
-                    ->delete();
+            $check = DB::table('precise.warehouse_trans_dt')
+                ->where('trans_hd_id', $data['trans_hd_id'])
+                ->delete();
 
-                if ($check == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
-                }
-
-                $check = DB::table('precise.material_usage')
-                    ->where('trans_hd_id', $data['trans_hd_id'])
-                    ->delete();
-                if ($check == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
-                }
-
-                $tran_Seq = 0;
-                $tranSeq = DB::table('precise.warehouse_trans_dt')
-                    ->where('trans_hd_id', $data['trans_hd_id'])
-                    ->select(
-                        'trans_seq'
-                    )
-                    ->orderBy('trans_seq', 'DESC')
-                    ->first();
-
-                if ($tranSeq != null) {
-                    $tran_Seq = $tranSeq->trans_seq + 1;
-                } else {
-                    $tran_Seq = 1;
-                }
-
-                $PrdSeq = 0;
-                $workOrderSeq = DB::table('precise.material_usage')
-                    ->where('work_order_hd_id', $data['work_order_hd_id'])
-                    ->select(
-                        'PrdSeq'
-                    )
-                    ->orderBy('PrdSeq', 'DESC')
-                    ->first();
-
-                if ($workOrderSeq != null) {
-                    $PrdSeq = $workOrderSeq->PrdSeq + 1;
-                } else {
-                    $PrdSeq = 1;
-                }
-
-                foreach ($data['detail'] as $transdt) {
-                    $whDt[] = [
-                        'trans_hd_id'           => $data['trans_hd_id'],
-                        'trans_number'          => $data['InvtNmbr'],
-                        'trans_type'            => $data['trans_type_id'],
-                        'trans_seq'             => $tran_Seq,
-                        'product_id'            => $transdt['material_id'],
-                        'trans_in_qty'          => 0.0000,
-                        'trans_out_qty'         => $transdt['material_qty'],
-                        'trans_uom'             => $transdt['material_uom'],
-                        'trans_in_qty_t'        => 0.0000,
-                        'trans_out_qty_t'       => $transdt['material_qty'],
-                        'trans_uom_t'           => $transdt['material_uom'],
-                        'trans_price'           => 0.0000,
-                        'trans_qty_price'       => 0.0000,
-                        'trans_ppn_percent'     => 0.0000,
-                        'trans_ppn_amount'      => 0.0000,
-                        'created_by'            => $data['updated_by'],
-                        'updated_by'            => $data['updated_by']
-                    ];
-                    $tran_Seq = $tran_Seq + 1;
-                }
-
-                $check = DB::table('precise.warehouse_trans_dt')
-                    ->insert($whDt);
-
-                if ($check == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
-                }
-
-                foreach ($data['detail'] as $d) {
-                    $dt[] = [
-                        'production_date'       => $data['production_date'],
-                        'work_order_hd_id'      => $data['work_order_hd_id'],
-                        'PrdNumber'             => $data['PrdNumber'],
-                        'PrdSeq'                => $PrdSeq,
-                        'usage_description'     => $data['usage_description'],
-                        'bom_hd_id'             => $data['bom_hd_id'],
-                        'bom_factor'            => $data['bom_factor'],
-                        'material_id'           => $d['material_id'],
-                        'material_qty'          => $d['material_qty'],
-                        'material_uom'          => $d['material_uom'],
-                        'material_std_qty'      => $d['material_qty'],
-                        'material_std_uom'      => $d['material_uom'],
-                        'warehouse_id'          => $data['warehouse_id'],
-                        'InvtNmbr'              => $data['InvtNmbr'],
-                        'InvtType'              => $data['InvtType'],
-                        'trans_hd_id'           => $data['trans_hd_id'],
-                        'created_by'            => $data['updated_by'],
-                        'updated_by'            => $data['updated_by']
-                    ];
-                    $PrdSeq = $PrdSeq + 1;
-                }
-                $check = DB::table('precise.material_usage')
-                    ->insert($dt);
-
-                if ($check == 0) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
-                }
-
-                $trans = DB::table('precise.material_usage')
-                    ->where('trans_hd_id', $data['trans_hd_id'])
-                    ->select('usage_id')
-                    ->first();
-
-                DB::commit();
-                return response()->json(['status' => 'ok', 'message' => $trans->usage_id], 200);
-            } catch (\Exception $e) {
+            if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+                return response()->json(['status' => 'error', 'message' => "server error"], 500);
             }
+
+            $check = DB::table('precise.material_usage')
+                ->where('trans_hd_id', $data['trans_hd_id'])
+                ->delete();
+
+            if ($check == 0) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+            }
+
+            $tran_Seq = 0;
+            $tranSeq = DB::table('precise.warehouse_trans_dt')
+                ->where('trans_hd_id', $data['trans_hd_id'])
+                ->select(
+                    'trans_seq'
+                )
+                ->orderBy('trans_seq', 'DESC')
+                ->first();
+
+            if ($tranSeq != null) {
+                $tran_Seq = $tranSeq->trans_seq + 1;
+            } else {
+                $tran_Seq = 1;
+            }
+
+            $PrdSeq = 0;
+            $workOrderSeq = DB::table('precise.material_usage')
+                ->where('work_order_hd_id', $data['work_order_hd_id'])
+                ->select(
+                    'PrdSeq'
+                )
+                ->orderBy('PrdSeq', 'DESC')
+                ->first();
+
+            if ($workOrderSeq != null) {
+                $PrdSeq = $workOrderSeq->PrdSeq + 1;
+            } else {
+                $PrdSeq = 1;
+            }
+
+            $validator = Validator::make($data, [
+                'detail.*.material_id'  => ['required', 'exists:product,product_id'],
+                'detail.*.material_qty' => ['required', 'numeric'],
+                'detail.*.material_uom' => ['required', "exists:uom,uom_code"],
+                'detail.*.updated_by'   => ['required']
+            ]);
+            if ($validator->fails()) {
+                DB::rollBack();
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+            }
+
+            foreach ($data['detail'] as $transdt) {
+                $whDt[] = [
+                    'trans_hd_id'           => $data['trans_hd_id'],
+                    'trans_number'          => $data['InvtNmbr'],
+                    'trans_type'            => $data['trans_type_id'],
+                    'trans_seq'             => $tran_Seq,
+                    'product_id'            => $transdt['material_id'],
+                    'trans_in_qty'          => 0.0000,
+                    'trans_out_qty'         => $transdt['material_qty'],
+                    'trans_uom'             => $transdt['material_uom'],
+                    'trans_in_qty_t'        => 0.0000,
+                    'trans_out_qty_t'       => $transdt['material_qty'],
+                    'trans_uom_t'           => $transdt['material_uom'],
+                    'trans_price'           => 0.0000,
+                    'trans_qty_price'       => 0.0000,
+                    'trans_ppn_percent'     => 0.0000,
+                    'trans_ppn_amount'      => 0.0000,
+                    'created_by'            => $data['updated_by'],
+                    'updated_by'            => $data['updated_by']
+                ];
+                $tran_Seq = $tran_Seq + 1;
+            }
+
+            $check = DB::table('precise.warehouse_trans_dt')
+                ->insert($whDt);
+
+            if ($check == 0) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+            }
+
+            foreach ($data['detail'] as $d) {
+                $dt[] = [
+                    'production_date'       => $data['production_date'],
+                    'work_order_hd_id'      => $data['work_order_hd_id'],
+                    'PrdNumber'             => $data['PrdNumber'],
+                    'PrdSeq'                => $PrdSeq,
+                    'usage_description'     => $data['usage_description'],
+                    'bom_hd_id'             => $data['bom_hd_id'],
+                    'bom_factor'            => $data['bom_factor'],
+                    'material_id'           => $d['material_id'],
+                    'material_qty'          => $d['material_qty'],
+                    'material_uom'          => $d['material_uom'],
+                    'material_std_qty'      => $d['material_qty'],
+                    'material_std_uom'      => $d['material_uom'],
+                    'warehouse_id'          => $data['warehouse_id'],
+                    'InvtNmbr'              => $data['InvtNmbr'],
+                    'InvtType'              => $data['InvtType'],
+                    'trans_hd_id'           => $data['trans_hd_id'],
+                    'created_by'            => $data['updated_by'],
+                    'updated_by'            => $data['updated_by']
+                ];
+                $PrdSeq = $PrdSeq + 1;
+            }
+            $check = DB::table('precise.material_usage')
+                ->insert($dt);
+
+            if ($check == 0) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+            }
+
+            $trans = DB::table('precise.material_usage')
+                ->where('trans_hd_id', $data['trans_hd_id'])
+                ->select('usage_id')
+                ->first();
+
+            DB::commit();
+            return response()->json(['status' => 'ok', 'message' => $trans->usage_id], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
     }
 
@@ -528,7 +512,7 @@ class MaterialUsageController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -586,7 +570,7 @@ class MaterialUsageController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "number") {
                 $this->materialUsage = DB::table('precise.material_usage')->where([

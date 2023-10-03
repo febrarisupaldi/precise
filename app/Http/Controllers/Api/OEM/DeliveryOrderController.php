@@ -7,26 +7,25 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\JsonResponse;
 
 class DeliveryOrderController extends Controller
 {
     private $deliveryOrder;
-    public function index(Request $request): JsonResponse
+    public function index($warehouse, Request $request): JsonResponse
     {
-        $start = $request->get('start');
-        $end = $request->get('end');
-        $wh = $request->get('warehouse_id');
+        $start = $request->get('start', date("Y-m-d"));
+        $end = $request->get('end', date("Y-m-d"));
         $validator = Validator::make($request->all(), [
-            'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'warehouse_id'  => 'required'
+            'start'         => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
+            'end'           => 'required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
-        $warehouse = explode("-", $wh);
+        $warehouse = explode("-", $warehouse);
         $this->deliveryOrder = DB::table("precise.oem_delivery_hd as hd")
             ->whereBetween('hd.oem_delivery_date', [$start, $end])
             ->whereIn('hd.warehouse_id', $warehouse)
@@ -74,8 +73,9 @@ class DeliveryOrderController extends Controller
             ->get();
 
         if (count($this->deliveryOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->deliveryOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->deliveryOrder, code: 200);
     }
     public function show($id): JsonResponse
     {
@@ -217,54 +217,36 @@ class DeliveryOrderController extends Controller
             ->get();
 
         if (count($this->deliveryOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->deliveryOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->deliveryOrder, code: 200);
     }
 
-    public function check(Request $request): JsonResponse
+    public function check($id, $deliveryStatus): JsonResponse
     {
-        $stat = $request->get('delivery_status');
-        $po = $request->get('oem_order_hd_id');
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'delivery_status'    => 'required',
-                'oem_order_hd_id'    => 'required'
-            ]
-        );
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $status = explode("-", $stat);
-            $this->deliveryOrder = DB::table('precise.oem_delivery_hd')
-                ->whereIn('delivery_status', $status)
-                ->where('oem_order_hd_id', $po)
-                ->select('oem_delivery_hd_id')
-                ->count();
-            if ($this->deliveryOrder == 0)
-                return response()->json(['status' => 'error', 'message' => $this->deliveryOrder], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->deliveryOrder], 200);
-        }
+        $status = explode("-", $deliveryStatus);
+        $this->deliveryOrder = DB::table('precise.oem_delivery_hd')
+            ->whereIn('delivery_status', $status)
+            ->where('oem_order_hd_id', $id)
+            ->count();
+        if ($this->deliveryOrder == 0)
+            return ResponseController::json(status: "error", message: $this->deliveryOrder, code: 404);
+
+        return ResponseController::json(status: "ok", message: $this->deliveryOrder, code: 200);
     }
 
-    public function getOutstandingPOofDeliveryScheduleByDate(Request $request): JsonResponse
+    public function getOutstandingPOofDeliveryScheduleByDate($product, $customer, $warehouse, Request $request): JsonResponse
     {
-        $product  = $request->product_id;
-        $customer = $request->customer_id;
-        $warehouse = $request->warehouse_id;
-        $date     = $request->delivery_date;
+        $date     = $request->get("delivery_date");
 
         $validator = Validator::make(
             $request->all(),
             [
-                'product_id'    => 'required|exists:product,product_id',
-                'customer_id'   => 'required|exists:customer,customer_id',
-                'warehouse_id'  => 'required|exists:warehouse,warehouse_id',
                 'delivery_date' => 'required|date_format:Y-m-d'
             ]
         );
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->deliveryOrder = DB::table('precise.oem_delivery_hd as hd')
             ->where('hd.customer_id', $customer)
@@ -290,27 +272,26 @@ class DeliveryOrderController extends Controller
             ->leftJoin('precise.oem_delivery_status as ods', 'hd.delivery_status', '=', 'ods.oem_delivery_status_id')
             ->get();
         if (count($this->deliveryOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->deliveryOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->deliveryOrder, code: 200);
     }
 
-    public function getHistoryDOByPOAndDate(Request $request): JsonResponse
+    public function getHistoryDOByPOAndDate($id, $detailId, Request $request): JsonResponse
     {
 
         $validator = Validator::make(
             $request->all(),
             [
-                'oem_order_hd_id'   => 'required|exists:oem_order_hd,oem_order_hd_id',
-                'oem_order_dt_id'   => 'required|exists:oem_order_dt,oem_order_dt_id',
                 'delivery_date'     => 'required|date_format:Y-m-d'
             ]
         );
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->deliveryOrder = DB::table("precise.oem_delivery_hd", "hd")
-            ->where('hd.oem_order_hd_id', $request->oem_order_hd_id)
-            ->where('dt.oem_order_dt_id', $request->oem_order_dt_id)
+            ->where('hd.oem_order_hd_id', $id)
+            ->where('dt.oem_order_dt_id', $detailId)
             ->where('hd.oem_delivery_date', $request->delivery_date)
             ->select(
                 'hd.oem_delivery_hd_id',
@@ -327,8 +308,9 @@ class DeliveryOrderController extends Controller
             ->leftJoin('precise.oem_delivery_status as ods', 'hd.delivery_status', '=', 'ods.oem_delivery_status_id')
             ->get();
         if (count($this->deliveryOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->deliveryOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->deliveryOrder, code: 200);
     }
 
     public function getHistoryDOByPO($id): JsonResponse
@@ -359,29 +341,27 @@ class DeliveryOrderController extends Controller
             ->leftJoin('precise.oem_delivery_status as ods', 'hd.delivery_status', '=', 'ods.oem_delivery_status_id')
             ->get();
 
-        if (count($this->deliveryOrder) == 0) {
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        }
-        return response()->json(["status" => "ok", "data" => $this->deliveryOrder], 200);
+        if (count($this->deliveryOrder) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->deliveryOrder, code: 200);
     }
 
-    public function joined(Request $request): JsonResponse
+    public function detail($warehouse, Request $request): JsonResponse
     {
-        $start = $request->start;
-        $end = $request->end;
-        $wh = $request->warehouse_id;
+        $start = $request->get('start', date("Y-m-d"));
+        $end = $request->get('end', date("Y-m-d"));
 
         $validator = Validator::make($request->all(), [
             'start'         => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required_with:start|date_format:Y-m-d|after_or_equal:start',
-            'warehouse_id'  => 'required'
+            'end'           => 'required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
-            $warehouse = explode('-', $wh);
+            $warehouse = explode('-', $warehouse);
             $query = DB::table('oem_delivery_hd as hd')
                 ->whereBetween('hd.oem_delivery_date', [$start, $end])
                 ->whereIn('hd.warehouse_id', $warehouse)
@@ -508,10 +488,11 @@ class DeliveryOrderController extends Controller
                 ->get();
 
             if (count($this->deliveryOrder) == 0)
-                return response()->json(["status" => "error", "data" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->deliveryOrder], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->deliveryOrder, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -531,10 +512,8 @@ class DeliveryOrderController extends Controller
     public function getDOForValidateProduct($header, $detail): JsonResponse
     {
         $this->deliveryOrder = DB::table("precise.oem_delivery_dt", "dt")
-            ->where([
-                "hd.oem_order_hd_id"    => $header,
-                "dt.oem_order_dt_id"    => $detail
-            ])
+            ->where("hd.oem_order_hd_id", $header)
+            ->where("dt.oem_order_dt_id", $detail)
             ->select(
                 "dt.oem_delivery_hd_id",
                 "hd.oem_delivery_number",

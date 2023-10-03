@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\OEM;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -12,25 +13,27 @@ use Illuminate\Http\JsonResponse;
 class MaterialIncomingController extends Controller
 {
     private $materialIncoming;
-    public function index(Request $request): JsonResponse
+    /**
+     * modified route api
+     * 
+     */
+    public function index($warehouse, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
-        $wh = $request->get('warehouse_id');
         $validator = Validator::make($request->all(), [
             'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'warehouse_id'  => 'required'
+            'end'           => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
-            $warehouse = explode('-', $wh);
+            $warehouses = explode('-', $warehouse);
             $this->materialIncoming = DB::table('precise.oem_material_trans_hd as hd')
                 ->whereBetween('hd.trans_date', [$start, $end])
-                ->whereIn('hd.warehouse_id', $warehouse)
+                ->whereIn('hd.warehouse_id', $warehouses)
                 ->select(
                     'material_trans_hd_id',
                     'trans_number',
@@ -50,10 +53,11 @@ class MaterialIncomingController extends Controller
                 ->get();
 
             if (count($this->materialIncoming) == 0)
-                return response()->json(['status' => 'error', 'data' => 'not found'], 404);
-            return response()->json(['status' => 'ok', 'data' => $this->materialIncoming], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->materialIncoming, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -148,7 +152,7 @@ class MaterialIncomingController extends Controller
         return response()->json($this->materialIncoming, 200);
     }
 
-    public function getMaterialIncommingUnallocated()
+    public function getMaterialIncomingUnallocated()
     {
         $query = DB::table("precise.oem_material_trans_hd", "hd")
             ->select(
@@ -191,29 +195,32 @@ class MaterialIncomingController extends Controller
             ->get();
 
         if (count($this->materialIncoming) == 0)
-            return response()->json(['status' => 'error', 'data' => 'not found'], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->materialIncoming], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->materialIncoming, code: 200);
     }
 
-    public function joined(Request $request): JsonResponse
+    /**
+     * modified route api
+     * 
+     */
+    public function detail($warehouse, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
-        $wh = $request->get('warehouse_id');
         $validator = Validator::make($request->all(), [
             'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'warehouse_id'  => 'required'
+            'end'           => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
-            $warehouse = explode('-', $wh);
+            $warehouses = explode('-', $warehouse);
             $this->materialIncoming = DB::table('precise.oem_material_trans_hd as hd')
                 ->whereBetween('hd.trans_date', [$start, $end])
-                ->whereIn('hd.warehouse_id', $warehouse)
+                ->whereIn('hd.warehouse_id', $warehouses)
                 ->select(
                     'hd.material_trans_hd_id',
                     'trans_number',
@@ -240,10 +247,11 @@ class MaterialIncomingController extends Controller
                 ->get();
 
             if (count($this->materialIncoming) == 0)
-                return response()->json(['status' => 'error', 'data' => 'not found'], 404);
-            return response()->json(['status' => 'ok', 'data' => $this->materialIncoming], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->materialIncoming, code: 200);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -258,11 +266,19 @@ class MaterialIncomingController extends Controller
             'warehouse_id'  => 'required|exists:warehouse,warehouse_id',
             'desc'          => 'nullable',
             'created_by'    => 'required',
-            'detail'        => 'required'
+            'detail.*.material_customer_hd_id'   => 'required|exists:material_customer_hd,material_customer_hd_id',
+            'detail.*.material_qty'              => 'required|numeric',
+            'detail.*.material_uom'              => 'required|exists:uom,uom_code',
+            'detail.*.created_by'                => 'required',
+            'detail.*.purchaseorder_detail'      => 'required',
+            'detail.*.purchaseorder_detail.*.oem_order_dt_id'   => 'required|exists:oem_order_dt,oem_order_dt_id',
+            'detail.*.purchaseorder_detail.*.allocation_qty'    => 'required|numeric',
+            'detail.*.purchaseorder_detail.*.allocation_uom'    => 'required|exists:uom,uom_code',
+            'detail.*.purchaseorder_detail.*.created_by'        => 'required'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -278,21 +294,9 @@ class MaterialIncomingController extends Controller
 
             if ($id == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
             foreach ($data['detail'] as $d) {
-                $validator = Validator::make($d, [
-                    'material_customer_hd_id'   => 'required|exists:material_customer_hd,material_customer_hd_id',
-                    'material_qty'              => 'required|numeric',
-                    'material_uom'              => 'required|exists:uom,uom_code',
-                    'created_by'                => 'required',
-                    'purchaseorder_detail'      => 'required'
-                ]);
-
-                if ($validator->fails()) {
-                    DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                }
 
                 $id = DB::table('precise.oem_material_trans_dt')
                     ->insertGetId([
@@ -305,22 +309,10 @@ class MaterialIncomingController extends Controller
 
                 if ($id == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
                 $values = [];
                 foreach ($d["purchaseorder_detail"] as $po) {
-                    $validator = Validator::make($po, [
-                        'oem_order_dt_id'   => 'required|exists:oem_order_dt,oem_order_dt_id',
-                        'allocation_qty'    => 'required|numeric',
-                        'allocation_uom'    => 'required|exists:uom,uom_code',
-                        'created_by'        => 'required'
-                    ]);
-
-                    if ($validator->fails()) {
-                        DB::rollBack();
-                        return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                    }
-
                     $values[] = [
                         'material_trans_dt_id'  => $id,
                         'oem_order_dt_id'       => $po['oem_order_dt_id'],
@@ -335,20 +327,19 @@ class MaterialIncomingController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
-            $trans = DB::table('precise.oem_material_trans_hd')
+            $number = DB::table('precise.oem_material_trans_hd')
                 ->where('material_trans_hd_id', $id)
-                ->select('trans_number')
-                ->first();
+                ->value('trans_number');
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => $trans->trans_number], 200);
+            return ResponseController::json(status: "ok", message: "success input data", data: $number, code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -367,7 +358,7 @@ class MaterialIncomingController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -383,6 +374,18 @@ class MaterialIncomingController extends Controller
                 ]);
 
             if ($data['inserted'] != null) {
+                $validator = Validator::make($data, [
+                    'inserted.*.material_trans_hd_id'       => 'required|exists:oem_material_trans_hd,oem_material_trans_hd_id',
+                    'inserted.*.material_customer_hd_id'    => 'required|exists:material_customer_hd,material_customer_hd_id',
+                    'inserted.*.material_qty'               => 'required|numeric',
+                    'inserted.*.material_uom'               => 'required|exists:uom,uom_code',
+                    'inserted.*.created_by'                 => 'required'
+                ]);
+
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data['inserted'] as $d) {
                     $dt[] = [
                         'material_trans_hd_id'    => $d['material_trans_hd_id'],
@@ -396,11 +399,23 @@ class MaterialIncomingController extends Controller
                     ->insert($dt);
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
             if ($data['updated'] != null) {
+                $validator = Validator::make($data, [
+                    'updated.*.material_trans_dt_id'       => 'required|exists:oem_material_trans_dt,oem_material_trans_dt_id',
+                    'updated.*.material_trans_hd_id'       => 'required|exists:oem_material_trans_hd,oem_material_trans_hd_id',
+                    'updated.*.material_customer_hd_id'    => 'required|exists:material_customer_hd,material_customer_hd_id',
+                    'updated.*.material_qty'               => 'required|numeric',
+                    'updated.*.material_uom'               => 'required|exists:uom,uom_code',
+                    'updated.*.created_by'                 => 'required'
+                ]);
+
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
                 foreach ($data['updated'] as $d) {
                     $check = DB::table('precise.oem_material_trans_dt')
                         ->where('material_trans_dt_id', $d['material_trans_dt_id'])
@@ -413,13 +428,20 @@ class MaterialIncomingController extends Controller
 
                     if ($check == 0) {
                         DB::rollBack();
-                        return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                        return ResponseController::json(status: "error", message: "server error", code: 500);
                     }
                 }
             }
 
             if ($data['deleted'] != null) {
-                $delete = array();
+                $validator = Validator::make($data, [
+                    'deleted.*.material_trans_dt_id'       => 'required|exists:oem_material_trans_dt,oem_material_trans_dt_id'
+                ]);
+
+                if ($validator->fails()) {
+                    DB::rollBack();
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
                 foreach ($data['deleted'] as $del) {
                     $delete[] = $del['material_trans_dt_id'];
                 }
@@ -430,14 +452,14 @@ class MaterialIncomingController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "server error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -450,7 +472,7 @@ class MaterialIncomingController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -464,7 +486,7 @@ class MaterialIncomingController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'server error'], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table('precise.oem_material_trans_hd')
@@ -474,13 +496,13 @@ class MaterialIncomingController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'server error'], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }

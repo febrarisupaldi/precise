@@ -8,26 +8,26 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\QueryController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
+use GuzzleHttp\Psr7\Message;
 use Illuminate\Http\JsonResponse;
 
 class WorkOrderController extends Controller
 {
     private $workOrder;
 
-    public function index(Request $request): JsonResponse
+    public function index($workcenter, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
-        $wc = $request->get('workcenter_id');
         $validator = Validator::make($request->all(), [
             'start'         => 'required|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required|date_format:Y-m-d|after_or_equal:start',
-            'workcenter_id' => 'required'
+            'end'           => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
-        $workcenter = explode("-", $wc);
+        $workcenter = explode("-", $workcenter);
         $this->workOrder = DB::table('precise.work_order as wo')
             ->whereIn('wo.workcenter_id', $workcenter)
             ->whereBetween('wo.start_date', [$start, $end])
@@ -57,8 +57,9 @@ class WorkOrderController extends Controller
             ->leftJoin('precise.work_order_status as wos', 'wo.work_order_status', '=', 'wos.work_order_status_code')
             ->get();
         if (count($this->workOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->workOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->workOrder, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -137,8 +138,9 @@ class WorkOrderController extends Controller
             ->leftJoin('precise.product as p', 'w.product_id', '=', 'p.product_id')
             ->get();
         if (count($this->workOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->workOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->workOrder, code: 200);
     }
 
     public function showByWorkcenter($id): JsonResponse
@@ -172,8 +174,9 @@ class WorkOrderController extends Controller
             )
             ->get();
         if (count($this->workOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->workOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->workOrder, code: 200);
     }
 
     public function create(Request $request): JsonResponse
@@ -193,7 +196,7 @@ class WorkOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->workOrder = DB::table("precise.work_order")
             ->insert([
@@ -212,10 +215,10 @@ class WorkOrderController extends Controller
                 'created_by'                => $request->created_by
             ]);
 
-        if ($this->workOrder == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->workOrder == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -237,7 +240,7 @@ class WorkOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             DB::beginTransaction();
@@ -262,29 +265,25 @@ class WorkOrderController extends Controller
 
             if ($this->workOrder == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 404);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
-    public function showImportCheckBOMAndProduct(Request $request): JsonResponse
+    /**
+     * modified parameter
+     */
+    public function showImportCheckBOMAndProduct($bomCode, $product): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'bom_code'      => 'required',
-            'product_id'    => 'required'
-        ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
         $this->workOrder = DB::table('precise.bom_hd')
-            ->where('bom_code', $request->bom_code)
-            ->where('product_id', $request->product_id)
+            ->where('bom_code', $bomCode)
+            ->where('product_id', $product)
             ->select(
                 'bom_hd_id',
                 'bom_code',
@@ -314,23 +313,20 @@ class WorkOrderController extends Controller
             )
             ->get();
         if (count($this->workOrder) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->workOrder], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->workOrder, code: 200);
     }
+    /**
+     * modified parameter
+     */
 
-    public function showImportCheckProductAndWorkcenter(Request $request): JsonResponse
+    public function showImportCheckProductAndWorkcenter($productCode, $workcenterCode): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'product_code'      => 'required',
-            'workcenter_code'   => 'required'
-        ]);
 
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
         $this->workOrder = DB::table('precise.product_workcenter as pw')
-            ->where('p.product_code', $request->product_code)
-            ->where('w.workcenter_code', $request->workcenter_code)
+            ->where('p.product_code', $productCode)
+            ->where('w.workcenter_code', $workcenterCode)
             ->select(
                 'p.product_id',
                 'w.workcenter_id'
@@ -349,7 +345,7 @@ class WorkOrderController extends Controller
             'reason'                => 'required',
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -360,13 +356,13 @@ class WorkOrderController extends Controller
 
             if ($this->workOrder == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -380,7 +376,7 @@ class WorkOrderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "number") {
                 $this->workOrder = DB::table('precise.work_order')
@@ -388,8 +384,8 @@ class WorkOrderController extends Controller
                     ->count();
             }
             if ($this->workOrder == 0)
-                return response()->json(['status' => 'error', 'message' => $this->workOrder], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->workOrder], 200);
+                return ResponseController::json(status: "error", message: $this->workOrder, code: 404);
+            return ResponseController::json(status: "ok", message: $this->workOrder, code: 200);
         }
     }
 }
