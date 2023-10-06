@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Logistic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class ProductionStorageController extends Controller
             'rack_number'   => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->productionStorage = DB::table("precise.warehouse_trans_hd")
             ->where('trans_number', $request->inventory_number)
@@ -28,7 +29,8 @@ class ProductionStorageController extends Controller
             ]);
 
         if ($this->productionStorage == 0)
-            return response()->json(["status" => "error", "message" => "error update data"], 500);
-        return response()->json(["status" => "ok", "message" => "success update data"], 200);
+            return ResponseController::json(status: "error", message: "error update data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success update data", code: 200);
     }
 }

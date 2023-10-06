@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api\Engineering;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 
 class MachinePressingActivityController extends Controller
@@ -14,7 +16,7 @@ class MachinePressingActivityController extends Controller
     {
     }
 
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $validator = Validator::make(
             $request->all(),
@@ -29,23 +31,21 @@ class MachinePressingActivityController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->activity = DB::table('precise.machine_pressing_activity')
-                ->insert([
-                    'machine_pressing_id'   => $request->machine_pressing_id,
-                    'mold_pressing_hd_id'   => $request->mold_pressing_hd_id,
-                    'machine_status_code'   => $request->machine_status_code,
-                    'mold_status_code'      => $request->mold_status_code,
-                    'setter_mold_nik'       => $request->setter_mold_nik,
-                    'description'           => $request->desc
-                ]);
-
-            if ($this->activity == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-            } else {
-                return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
-            }
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->activity = DB::table('precise.machine_pressing_activity')
+            ->insert([
+                'machine_pressing_id'   => $request->machine_pressing_id,
+                'mold_pressing_hd_id'   => $request->mold_pressing_hd_id,
+                'machine_status_code'   => $request->machine_status_code,
+                'mold_status_code'      => $request->mold_status_code,
+                'setter_mold_nik'       => $request->setter_mold_nik,
+                'description'           => $request->desc
+            ]);
+
+        if ($this->activity == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 }

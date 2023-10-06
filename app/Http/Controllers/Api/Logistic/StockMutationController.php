@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Logistic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Validator;
 class StockMutationController extends Controller
 {
     private $stock;
-    public function index(Request $request, $warehouseID): JsonResponse
+    public function index($warehouse, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
@@ -21,14 +22,17 @@ class StockMutationController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
-        $this->stock = DB::select('call precise.warehouse_get_stock_mutation(?,?,?)', array($start, $end, $warehouseID));
-        return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+        $this->stock = DB::select('call precise.warehouse_get_stock_mutation(?,?,?)', array($start, $end, $warehouse));
+        if (count($this->stock) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->stock, code: 200);
     }
 
-    public function getStockCard(Request $request, $warehouseID, $productID): JsonResponse
+    public function getStockCard($warehouseID, $productID, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
@@ -37,9 +41,12 @@ class StockMutationController extends Controller
             'end'       => 'required|required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->stock = DB::select('call precise.warehouse_get_stock_card(?,?,?,?)', array($start, $end, $warehouseID, $productID));
-        return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+        if (count($this->stock) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->stock, code: 200);
     }
 }

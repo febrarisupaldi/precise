@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 
@@ -51,7 +52,10 @@ class SettingController extends Controller
             ->leftJoin(DB::raw("({$query->toSql()})GivenAccess"), 'menu.menu_id', '=', 'GivenAccess.menu_id')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->setting], 200);
+        if (count($this->setting) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->setting, code: 200);
     }
 
     public function logging(): JsonResponse
@@ -66,7 +70,10 @@ class SettingController extends Controller
                 'desktop_enable_logging_menu_action',
                 'desktop_enable_logging_loading_time'
             ])->get();
-        return response()->json(["status" => "ok", "data" => $this->setting], 200);
+        if (count($this->setting) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->setting, code: 200);
     }
 
 
@@ -106,7 +113,10 @@ class SettingController extends Controller
             ->leftJoin('precise.warehouse as b', 'a.warehouse_id', '=', 'b.warehouse_id')
             ->where('a.user_id', $me->data->user_id)
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->setting], 200);
+        if (count($this->setting) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->setting, code: 200);
     }
 
     public function user()
@@ -126,7 +136,10 @@ class SettingController extends Controller
                 'u.is_active'
             )->leftJoin('employee as e', 'u.user_id', '=', 'e.employee_nik')
             ->get();
-        return response()->json(["status" => "ok", "data" => $this->setting], 200);
+        if (count($this->setting) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->setting, code: 200);
     }
 
     public function workcenter(): JsonResponse
@@ -145,6 +158,9 @@ class SettingController extends Controller
             ->orderBy('workcenter_code')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->setting], 200);
+        if (count($this->setting) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->setting, code: 200);
     }
 }

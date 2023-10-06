@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Application;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -23,23 +24,25 @@ class ApplicationController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->application = DB::table('information_schema.TABLES')
-                ->select('AUTO_INCREMENT')
-                ->where([
-                    'TABLE_SCHEMA'  => $request->db,
-                    'TABLE_NAME'    => $request->table
-                ])
-                ->get();
-            return response()->json(['status' => 'ok', 'data' => $this->application], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->application = DB::table('information_schema.TABLES')
+            ->select('AUTO_INCREMENT')
+            ->where([
+                'TABLE_SCHEMA'  => $request->db,
+                'TABLE_NAME'    => $request->table
+            ])
+            ->get();
+        if (count($this->application) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->application, code: 200);
     }
 
     public function serverTime(): JsonResponse
     {
         $this->application = DB::select("select sysdate() as 'ServerTime'");
-        return response()->json(['status' => 'ok', 'data' => $this->application], 200);
+        return ResponseController::json(status: "ok", data: $this->application, code: 200);
     }
 
     public function globalVariabel(): JsonResponse
@@ -50,7 +53,10 @@ class ApplicationController extends Controller
                 DB::raw('value')
             )
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->application], 200);
+        if (count($this->application) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->application, code: 200);
     }
 
     public function error(): JsonResponse
@@ -62,6 +68,9 @@ class ApplicationController extends Controller
                 'help_link_online'
             )
             ->get();
-        return response()->json(['status' => 'ok', 'data' => $this->application], 200);
+        if (count($this->application) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->application, code: 200);
     }
 }

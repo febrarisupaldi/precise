@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Logistic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ class MonitoringSalesOrderController extends Controller
             'end'       => 'required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->monitoring = DB::table('precise.monitoring_so_hd as a')
             ->whereBetween('b.sales_order_date', [$start, $end])
@@ -57,8 +58,9 @@ class MonitoringSalesOrderController extends Controller
             ->get();
 
         if (count($this->monitoring) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->monitoring], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->monitoring, code: 200);
     }
 
     public function getReleasedSO(): JsonResponse
@@ -88,7 +90,10 @@ class MonitoringSalesOrderController extends Controller
             ->leftJoin('precise.city as d', 'c.city_id', '=', 'd.city_id')
             ->get();
 
-        return response()->json(["status" => "ok", "data" => $this->monitoring], 200);
+        if (count($this->monitoring) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->monitoring, code: 200);
     }
 
     public function getReleasedItem(Request $request): JsonResponse
@@ -100,7 +105,7 @@ class MonitoringSalesOrderController extends Controller
             'end'       => 'required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->monitoring = DB::table('precise.monitoring_so_hd as hd')
             ->whereBetween('sohd.sales_order_date', [$start, $end])
@@ -121,8 +126,9 @@ class MonitoringSalesOrderController extends Controller
             ->get();
 
         if (count($this->monitoring) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->monitoring], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->monitoring, code: 200);
     }
 
     public function getPendingPicking($name)
@@ -190,7 +196,7 @@ class MonitoringSalesOrderController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->monitoring = DB::table("precise.monitoring_so_hd")
@@ -202,10 +208,10 @@ class MonitoringSalesOrderController extends Controller
                 'picked_up_on'  => DB::raw('sysdate()')
             ]);
 
-        if ($this->monitoring == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+        if ($this->monitoring == 0)
+            return ResponseController::json(status: "error", message: "error update data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success update data", code: 200);
     }
 
     public function updatePickUpStatus(Request $request)
@@ -220,7 +226,7 @@ class MonitoringSalesOrderController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         $this->monitoring = DB::table("precise.monitoring_so_hd")
@@ -231,9 +237,9 @@ class MonitoringSalesOrderController extends Controller
                 "updated_by"        => $request->updated_by
             ]);
 
-        if ($this->monitoring == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+        if ($this->monitoring == 0)
+            return ResponseController::json(status: "error", message: "error update data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success update data", code: 200);
     }
 }

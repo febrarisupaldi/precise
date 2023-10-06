@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Logistic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,15 +15,19 @@ class StockDiagramController extends Controller
     public function index($id): JsonResponse
     {
         $this->stock = DB::select('call precise.warehouse_get_stock_diagram(?)', [$id]);
-        return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+        if (count($this->stock) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->stock, code: 200);
     }
 
     public function getStockDiagramByWarehouseAndProduct($warehouse, $product)
     {
         $this->stock = DB::select("call precise.warehouse_get_stock_diagram_by_product(?,?)", [$warehouse, $product]);
         if (count($this->stock) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->stock, code: 200);
     }
 
     public function getStockDiagram2($id): JsonResponse
@@ -30,9 +35,10 @@ class StockDiagramController extends Controller
         DB::beginTransaction();
         try {
             $temporary = DB::select('call precise.warehouse_get_stock_diagram_2(?)', [$id]);
+
             if (empty($temporary)) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'data' => "server error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $this->stock = DB::table("precise.tmp_warehouse_stock_diagram as d")
@@ -64,31 +70,27 @@ class StockDiagramController extends Controller
                 ->get();
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+            if (count($this->stock) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->stock, code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
+    /**
+     * change route parameter from query string to parameter
+     */
 
-    public function getStockDiagram2ByItemCode(Request $request): JsonResponse
+    public function getStockDiagram2ByItemCode($itemCode, $warehouse, $uom, $appearance, $designCode): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'wh_id'         => 'required|exists:warehouse,warehouse_id',
-            'item_code'     => 'required|exists:product_item,item_code',
-            'design_code'   => 'nullable|exists:product_design,design_code',
-            'uom_code'      => 'required|exists:uom,uom_code',
-            'appearance_id' => 'required'
-        ]);
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        }
         try {
-            $appearance = explode("-", $request->appearance_id);
+            $appearance = explode("-", $appearance);
             DB::beginTransaction();
 
-            $designCode = $request->design_code ?: null;
-            DB::select('call precise.warehouse_get_stock_diagram_2(?)', [$request->wh_id]);
+            $designCode = $designCode ?: null;
+            DB::select('call precise.warehouse_get_stock_diagram_2(?)', [$warehouse]);
 
             $this->stock = DB::table("precise.tmp_warehouse_stock_diagram as d")->select(
                 'd.product_id',
@@ -114,18 +116,21 @@ class StockDiagramController extends Controller
                 ->leftJoin("precise.product_item as pi", "pd.item_id", "=", "pi.item_id")
                 ->leftJoin("precise.product_design as pds", "pd.design_id", "=", "pds.design_id")
                 ->leftJoin("precise.product_appearance as pa", "pds.appearance_id", "=", "pa.appearance_id")
-                ->where('pi.item_code', $request->item_code)
+                ->where('pi.item_code', $itemCode)
                 ->where('design_code', 'like', '%' . $designCode . '%')
-                ->where('uom_code', $request->uom_code)
+                ->where('uom_code', $uom)
                 ->whereIn('pds.appearance_id', $appearance)
                 ->get();
 
             DB::commit();
 
-            return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+            if (count($this->stock) == 0)
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->stock, code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -185,7 +190,10 @@ class StockDiagramController extends Controller
             ->leftJoin('precise.customer as c', 'hd.customer_id', '=', 'c.customer_id')
             ->get();
 
-        return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+        if (count($this->stock) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->stock, code: 200);
     }
 
     public function getDOInProcess($warehouseID, $productID): JsonResponse
@@ -209,10 +217,13 @@ class StockDiagramController extends Controller
             ->leftJoin('precise.customer as c', 'hd.customer_id', '=', 'c.customer_id')
             ->get();
 
-        return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+        if (count($this->stock) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->stock, code: 200);
     }
 
-    public function getSOHistory(Request $request, $warehouseID, $productID): JsonResponse
+    public function getSOHistory($warehouseID, $productID, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
@@ -221,29 +232,31 @@ class StockDiagramController extends Controller
             'end'       => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()]);
-        } else {
-            $this->stock = DB::table('precise.sales_order_hd as hd')
-                ->where('hd.warehouse_id', $warehouseID)
-                ->whereBetween('hd.sales_order_date', [$start, $end])
-                ->where('product_id', $productID)
-                ->select(
-                    'sales_order_date',
-                    DB::raw(
-                        "precise.get_friendly_date(sales_order_date) as so_friendly_date"
-                    ),
-                    'customer_code',
-                    'customer_name',
-                    DB::raw(
-                        "concat(customer_code, ' - ', customer_name) as customer"
-                    ),
-                    'sales_order_qty'
-                )
-                ->join('precise.sales_order_dt as dt', 'hd.sales_order_hd_id', '=', 'dt.sales_order_hd_id')
-                ->leftJoin('precise.customer as c', 'hd.customer_id', '=', 'c.customer_id')
-                ->get();
-
-            return response()->json(['status' => 'ok', 'data' => $this->stock], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->stock = DB::table('precise.sales_order_hd as hd')
+            ->where('hd.warehouse_id', $warehouseID)
+            ->whereBetween('hd.sales_order_date', [$start, $end])
+            ->where('product_id', $productID)
+            ->select(
+                'sales_order_date',
+                DB::raw(
+                    "precise.get_friendly_date(sales_order_date) as so_friendly_date"
+                ),
+                'customer_code',
+                'customer_name',
+                DB::raw(
+                    "concat(customer_code, ' - ', customer_name) as customer"
+                ),
+                'sales_order_qty'
+            )
+            ->join('precise.sales_order_dt as dt', 'hd.sales_order_hd_id', '=', 'dt.sales_order_hd_id')
+            ->leftJoin('precise.customer as c', 'hd.customer_id', '=', 'c.customer_id')
+            ->get();
+
+        if (count($this->stock) == 0)
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->stock, code: 200);
     }
 }

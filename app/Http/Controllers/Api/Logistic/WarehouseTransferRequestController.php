@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Logistic;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class WarehouseTransferRequestController extends Controller
     private $warehouseTransferRequest;
     public function show($id): JsonResponse
     {
+        DB::beginTransaction();
         $header = DB::table("precise.warehouse_trans_request_hd as a")
             ->where("a.wh_trans_req_hd_id", $id)
             ->select(
@@ -54,6 +56,7 @@ class WarehouseTransferRequestController extends Controller
             ->first();
 
         if (empty($header)) {
+            DB::rollBack();
             return response()->json("not found", 404);
         }
 
@@ -80,22 +83,22 @@ class WarehouseTransferRequestController extends Controller
             (array)$header,
             array("detail" => $detail)
         );
-
+        DB::commit();
         return response()->json($this->warehouseTransferRequest, 200);
     }
 
-    public function showDetailRequestOut($warehouse, Request $request): JsonResponse
+    public function showDetailRequestOut(Request $request, $warehouse): JsonResponse
     {
         $wh = explode("-", $warehouse);
-        $start = $request->start;
-        $end = $request->end;
+        $start = $request->get('start');
+        $end = $request->get('end');
 
         $validator = Validator::make($request->all(), [
-            'start'     => 'required|date_format:Y-m-d|before_or_equal:end',
+            'start'     => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
             'end'       => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         try {
@@ -147,25 +150,26 @@ class WarehouseTransferRequestController extends Controller
                 ->get();
 
             if (count($this->warehouseTransferRequest) == 0)
-                return response()->json(["status" => "error", "message" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->warehouseTransferRequest], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->warehouseTransferRequest, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function showDetailRequestIn($warehouse, Request $request): JsonResponse
+    public function showDetailRequestIn(Request $request, $warehouse): JsonResponse
     {
         $wh = explode("-", $warehouse);
         $start = $request->start;
         $end = $request->end;
 
         $validator = Validator::make($request->all(), [
-            'start'     => 'required|date_format:Y-m-d|before_or_equal:end',
+            'start'     => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
             'end'       => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         try {
@@ -217,26 +221,26 @@ class WarehouseTransferRequestController extends Controller
                 ->get();
 
             if (count($this->warehouseTransferRequest) == 0)
-                return response()->json(["status" => "error", "message" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->warehouseTransferRequest], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->warehouseTransferRequest, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function showRequestOut($warehouse, Request $request)
+    public function showRequestOut(Request $request, $warehouse): JsonResponse
     {
         $wh = explode("-", $warehouse);
-        $start = $request->start;
-        $start = $request->start;
-        $end = $request->end;
+        $start = $request->get('start');
+        $end = $request->get('end');
 
         $validator = Validator::make($request->all(), [
-            'start'     => 'required|date_format:Y-m-d|before_or_equal:end',
+            'start'     => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
             'end'       => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             $this->warehouseTransferRequest = DB::table("precise.warehouse_trans_request_hd as a")
@@ -278,25 +282,26 @@ class WarehouseTransferRequestController extends Controller
                 ->get();
 
             if (count($this->warehouseTransferRequest) == 0)
-                return response()->json(["status" => "error", "message" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->warehouseTransferRequest], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->warehouseTransferRequest, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function showRequestIn($warehouse, Request $request)
+    public function showRequestIn(Request $request, $warehouse): JsonResponse
     {
         $wh = explode("-", $warehouse);
-        $start = $request->start;
-        $end = $request->end;
+        $start = $request->get('start');
+        $end = $request->get('end');
 
         $validator = Validator::make($request->all(), [
-            'start'     => 'required|date_format:Y-m-d|before_or_equal:end',
+            'start'     => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
             'end'       => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             $this->warehouseTransferRequest = DB::table("precise.warehouse_trans_request_hd as a")
@@ -338,25 +343,26 @@ class WarehouseTransferRequestController extends Controller
                 ->get();
 
             if (count($this->warehouseTransferRequest) == 0)
-                return response()->json(["status" => "error", "message" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->warehouseTransferRequest], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->warehouseTransferRequest, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function showRequestOutForIncomingRequest($warehouse, Request $request)
+    public function showRequestOutForIncomingRequest(Request $request, $warehouse): JsonResponse
     {
         $wh = explode("-", $warehouse);
-        $start = $request->start;
-        $end = $request->end;
+        $start = $request->get('start');
+        $end = $request->get('end');
 
         $validator = Validator::make($request->all(), [
-            'start'     => 'required|date_format:Y-m-d|before_or_equal:end',
+            'start'     => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
             'end'       => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             $this->warehouseTransferRequest = DB::table("precise.warehouse_trans_request_hd as a")
@@ -401,25 +407,26 @@ class WarehouseTransferRequestController extends Controller
                 ->get();
 
             if (count($this->warehouseTransferRequest) == 0)
-                return response()->json(["status" => "error", "message" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->warehouseTransferRequest], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->warehouseTransferRequest, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function showRequestOutForHanded($warehouse, Request $request)
+    public function showRequestOutForHanded(Request $request, $warehouse): JsonResponse
     {
         $wh = explode("-", $warehouse);
-        $start = $request->start;
-        $end = $request->end;
+        $start = $request->get('start');
+        $end = $request->get('end');
 
         $validator = Validator::make($request->all(), [
-            'start'     => 'required|date_format:Y-m-d|before_or_equal:end',
+            'start'     => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
             'end'       => 'required|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             $this->warehouseTransferRequest = DB::table("precise.warehouse_trans_request_hd as a")
@@ -463,20 +470,21 @@ class WarehouseTransferRequestController extends Controller
                 ->get();
 
             if (count($this->warehouseTransferRequest) == 0)
-                return response()->json(["status" => "error", "message" => "not found"], 404);
-            return response()->json(["status" => "ok", "data" => $this->warehouseTransferRequest], 200);
+                return ResponseController::json(status: "error", data: "not found", code: 404);
+
+            return ResponseController::json(status: "ok", data: $this->warehouseTransferRequest, code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function currentStock($product, $warehouse)
+    public function currentStock($product, $warehouse): JsonResponse
     {
         $data = DB::select("select precise.warehouse_get_current_stock(?,?) as current_stock", [$product, $warehouse]);
         return response()->json(["current_stock" => $data[0]->current_stock]);
     }
 
-    public function create(Request $request)
+    public function create(Request $request): JsonResponse
     {
         $data = $request->json()->all();
         $validator = Validator::make(
@@ -496,7 +504,7 @@ class WarehouseTransferRequestController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         try {
@@ -506,7 +514,7 @@ class WarehouseTransferRequestController extends Controller
 
             if (empty($trans)) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "error insert data"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $id = DB::table("precise.warehouse_trans_request_hd")
@@ -523,27 +531,27 @@ class WarehouseTransferRequestController extends Controller
                     'created_by'                => $data['created_by'],
                 ]);
 
-            if (empty($id)) {
+            if ($id < 1) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "fatal error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
+            }
+
+            $validator = Validator::make(
+                $data,
+                [
+                    'detail.*.product_id'    => 'required|exists:product,product_id',
+                    'detail.*.request_qty'   => 'required|numeric',
+                    'detail.*.approved_qty'  => 'required|numeric',
+                    'detail.*.product_uom'   => 'required|exists:uom,uom_code',
+                    'detail.*.created_by'    => 'required'
+                ]
+            );
+
+            if ($validator->fails()) {
+                return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
             }
 
             foreach ($data['detail'] as $detail) {
-                $validator = Validator::make(
-                    $detail,
-                    [
-                        'product_id'    => 'required|exists:product,product_id',
-                        'request_qty'   => 'required|numeric',
-                        'approved_qty'  => 'required|numeric',
-                        'product_uom'   => 'required|exists:uom,uom_code',
-                        'created_by'    => 'required'
-                    ]
-                );
-
-                if ($validator->fails()) {
-                    return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                }
-
                 $values[] = [
                     'wh_trans_req_hd_id'    => $id,
                     'product_id'            => $detail['product_id'],
@@ -559,23 +567,23 @@ class WarehouseTransferRequestController extends Controller
 
             if ($insertDetail == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "fatal error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::statement("CALL precise.system_increment_transaction_counter(22, :request_date)", array(':request_date' => $request->request_date));
             if (!$check) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "error insert data"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             DB::commit();
-            return response()->json(["status" => "ok", "id" => $id, "message" => "success insert data"], 200);
+            return ResponseController::json(status: "ok", id: $id, message: "success input data", code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function update(Request $request)
+    public function update(Request $request): JsonResponse
     {
         $data = $request->json()->all();
         $validator = Validator::make(
@@ -603,7 +611,7 @@ class WarehouseTransferRequestController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -656,23 +664,23 @@ class WarehouseTransferRequestController extends Controller
                 ]);
 
             if ($data["inserted"] != null) {
+                $validator = Validator::make(
+                    $data,
+                    [
+                        'inserted.*.wh_trans_req_hd_id'    => 'required|exists:warehouse_trans_request_hd,wh_trans_req_hd_id',
+                        'inserted.*.product_id'            => 'required|exists:product,product_id',
+                        'inserted.*.request_qty'           => 'required|numeric',
+                        'inserted.*.approved_qty'          => 'required|numeric',
+                        'inserted.*.product_uom'           => 'required|exists:uom,uom_code',
+                        'inserted.*.created_by'            => 'required'
+                    ]
+                );
+
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data["inserted"] as $insert) {
-                    $validator = Validator::make(
-                        $insert,
-                        [
-                            'wh_trans_req_hd_id'    => 'required|exists:warehouse_trans_request_hd,wh_trans_req_hd_id',
-                            'product_id'            => 'required|exists:product,product_id',
-                            'request_qty'           => 'required|numeric',
-                            'approved_qty'          => 'required|numeric',
-                            'product_uom'           => 'required|exists:uom,uom_code',
-                            'created_by'            => 'required'
-                        ]
-                    );
-
-                    if ($validator->fails()) {
-                        return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-                    }
-
                     $values[] = [
                         'wh_trans_req_hd_id'    => $insert['wh_trans_req_hd_id'],
                         'product_id'            => $insert['product_id'],
@@ -688,11 +696,28 @@ class WarehouseTransferRequestController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "fatal error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
             if ($data["updated"] != null) {
+                $validator = Validator::make(
+                    $data,
+                    [
+                        'updated.*.wh_trans_req_dt_id'    => 'required|exists:warehouse_trans_request_dt,wh_trans_req_dt_id',
+                        'updated.*.wh_trans_req_hd_id'    => 'required|exists:warehouse_trans_request_hd,wh_trans_req_hd_id',
+                        'updated.*.product_id'            => 'required|exists:product,product_id',
+                        'updated.*.request_qty'           => 'required|numeric',
+                        'updated.*.approved_qty'          => 'required|numeric',
+                        'updated.*.product_uom'           => 'required|exists:uom,uom_code',
+                        'updated.*.created_by'            => 'required'
+                    ]
+                );
+
+                if ($validator->fails()) {
+                    return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
+                }
+
                 foreach ($data["updated"] as $update) {
                     $check = DB::table("precise.warehouse_trans_request_dt")
                         ->where("wh_trans_req_dt_id", $update['wh_trans_req_dt_id'])
@@ -707,7 +732,7 @@ class WarehouseTransferRequestController extends Controller
 
                     if ($check == 0) {
                         DB::rollBack();
-                        return response()->json(['status' => 'error', 'message' => "fatal error"], 500);
+                        return ResponseController::json(status: "error", message: "server error", code: 500);
                     }
                 }
             }
@@ -723,18 +748,18 @@ class WarehouseTransferRequestController extends Controller
 
                 if ($check == 0) {
                     DB::rollBack();
-                    return response()->json(['status' => 'error', 'message' => "fatal error"], 500);
+                    return ResponseController::json(status: "error", message: "server error", code: 500);
                 }
             }
 
             DB::commit();
-            return response()->json(["status" => "ok", "message" => "success update data"], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function destroy(Request $request)
+    public function destroy(Request $request): JsonResponse
     {
         $validator = Validator::make(
             $request->all(),
@@ -746,7 +771,7 @@ class WarehouseTransferRequestController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -759,7 +784,7 @@ class WarehouseTransferRequestController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "fatal error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             $check = DB::table("precise.warehouse_trans_request_hd")
@@ -768,13 +793,13 @@ class WarehouseTransferRequestController extends Controller
 
             if ($check == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => "fatal error"], 500);
+                return ResponseController::json(status: "error", message: "server error", code: 500);
             }
 
             DB::commit();
-            return response()->json(["status" => "ok", "message" => "success delete data"], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 200);
         } catch (\Exception $e) {
-            return response()->json(["status" => "error", "message" => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -788,7 +813,7 @@ class WarehouseTransferRequestController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "number") {
                 $this->warehouseTransferRequest = DB::table('precise.warehouse_trans_request_hd')
@@ -796,8 +821,9 @@ class WarehouseTransferRequestController extends Controller
                     ->count();
             }
             if ($this->warehouseTransferRequest == 0)
-                return response()->json(['status' => 'ok', 'message' => $this->warehouseTransferRequest], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->warehouseTransferRequest], 200);
+                return ResponseController::json(status: "error", message: $this->warehouseTransferRequest, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->warehouseTransferRequest, code: 200);
         }
     }
 }

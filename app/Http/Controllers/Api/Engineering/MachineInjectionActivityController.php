@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Engineering;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -26,7 +27,7 @@ class MachineInjectionActivityController extends Controller
         );
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->activity = DB::table('precise.machine_injection_activity')
             ->insert([
@@ -38,9 +39,9 @@ class MachineInjectionActivityController extends Controller
                 'description'           => $request->desc
             ]);
 
-        if ($this->activity == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->activity == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 }

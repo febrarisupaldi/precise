@@ -65,9 +65,6 @@ class MaterialHandlingController extends Controller
                 'dt.material_supply_hd_id',
                 'dt.material_id',
                 'mtp.material_code',
-                'mtp.product_id',
-                'i.item_code',
-                'd.design_code',
                 'p.product_name',
                 'dt.lot_number',
                 'dt.supply_qty',
@@ -80,11 +77,8 @@ class MaterialHandlingController extends Controller
                 'dt.updated_by',
                 'dt.updated_on'
             )
-            ->leftJoin("precise.material_to_product as mtp", "dt.material_id", "=", "mtp.material_to_product_id")
-            ->leftJoin("precise.product_dictionary as pd", "mtp.product_id", "=", "pd.product_id")
-            ->leftJoin("precise.product as p", "mtp.product_id", "=", "p.product_id")
-            ->leftJoin("precise.product_item as i", "pd.item_id", "=", "i.item_id")
-            ->leftJoin("precise.product_design as pd", "pd.design_id", "=", "d.design_id")
+            ->leftJoin("precise.material_to_product as mtp", "dt.material_id", "=", "mtp.product_id")
+            ->leftJoin("precise.product as p", "dt.material_id", "=", "p.product_id")
             ->get();
 
         if (count($this->materialHandling) == 0)
@@ -107,17 +101,17 @@ class MaterialHandlingController extends Controller
         }
 
         $this->materialHandling = DB::table("precise.material_supply_hd")
-            ->insert([
+            ->insertGetId([
                 "trans_date"    => $request->trans_date,
                 "shift"         => $request->shift,
                 "machine_id"    => $request->machine_id,
                 "created_by"    => $request->created_by,
             ]);
 
-        if ($this->materialHandling == 0)
+        if ($this->materialHandling < 1)
             return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
 
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        return response()->json(['status' => 'ok', 'message' => 'success input data', 'id' => $this->materialHandling], 200);
     }
 
     public function createDetail(Request $request): JsonResponse

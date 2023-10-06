@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\JsonResponse;
 
 class LogController extends Controller
@@ -20,7 +21,7 @@ class LogController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->log = DB::table('precise.log_error')
             ->insert([
@@ -30,10 +31,10 @@ class LogController extends Controller
                 'log_note'          => $request->log_note
             ]);
 
-        if ($this->log == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->log == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function menu(Request $request): JsonResponse
@@ -44,20 +45,19 @@ class LogController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
-        } else {
-            $this->log = DB::table('precise.log_menu')
-                ->insert([
-                    'log_user_login_id' => $request->log_id,
-                    'menu_id'           => $request->menu_id,
-                    'access_on'         => DB::raw('sysdate()'),
-                ]);
-
-            if ($this->log == 0) {
-                return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-            }
-            return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
+        $this->log = DB::table('precise.log_menu')
+            ->insert([
+                'log_user_login_id' => $request->log_id,
+                'menu_id'           => $request->menu_id,
+                'access_on'         => DB::raw('sysdate()'),
+            ]);
+
+        if ($this->log == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function menuAction(Request $request): JsonResponse
@@ -68,7 +68,7 @@ class LogController extends Controller
             'menu_action_type_id'   => 'required|exists:menu_action_type,menu_action_type_id'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->log = DB::table('log_menu_action')
             ->insert([
@@ -77,9 +77,9 @@ class LogController extends Controller
                 'menu_action_type_id'   => $request->menu_action_type_id,
                 'action_on'             => DB::raw("sysdate()")
             ]);
-        if ($this->log == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->log == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 }

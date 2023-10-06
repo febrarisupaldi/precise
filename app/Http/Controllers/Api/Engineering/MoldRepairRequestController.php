@@ -7,25 +7,24 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use Illuminate\Http\JsonResponse;
 
 class MoldRepairRequestController extends Controller
 {
     private $moldRepair;
-    public function index(Request $request): JsonResponse
+    public function index($workcenter, Request $request): JsonResponse
     {
         $start  = $request->get('start');
         $end    = $request->get('end');
-        $wc     = $request->get('workcenter_id');
         $validator = Validator::make($request->all(), [
             'start'         => 'required_with:end|date_format:Y-m-d|before_or_equal:end',
-            'end'           => 'required_with:start|date_format:Y-m-d|after_or_equal:start',
-            'workcenter_id' => 'required|exists:workcenter,workcenter_id'
+            'end'           => 'required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
-        $workcenter = explode("-", $wc);
+        $workcenter = explode("-", $workcenter);
         $this->moldRepair = DB::table('precise.mold_repair_request_hd as a')
             ->whereBetween('a.request_date', [$start, $end])
             ->whereIn('a.workcenter_id', $workcenter)
@@ -56,8 +55,9 @@ class MoldRepairRequestController extends Controller
             ->get();
 
         if (count($this->moldRepair) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->moldRepair], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->moldRepair, code: 200);
     }
 
     public function show($id): JsonResponse
@@ -109,7 +109,7 @@ class MoldRepairRequestController extends Controller
             'created_by'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->moldRepair = DB::table('precise.mold_repair_request_hd')
             ->insert([
@@ -125,10 +125,10 @@ class MoldRepairRequestController extends Controller
                 'created_by'            => $request->created_by,
             ]);
 
-        if ($this->moldRepair == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        if ($this->moldRepair == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
+
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function update(Request $request): JsonResponse
@@ -147,7 +147,7 @@ class MoldRepairRequestController extends Controller
             'reason'            => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         try {
             DB::beginTransaction();
@@ -170,18 +170,18 @@ class MoldRepairRequestController extends Controller
 
             if ($this->moldRepair == 0) {
                 DB::rollback();
-                return response()->json(['status' => 'error', 'message' => 'failed update data'], 500);
+                return ResponseController::json(status: "error", message: "failed update data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success update data'], 200);
+            return ResponseController::json(status: "ok", message: "success update data", code: 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
-    public function destroy(Request $request)
+    public function destroy(Request $request): JsonResponse
     {
 
         $validator = Validator::make($request->all(), [
@@ -191,7 +191,7 @@ class MoldRepairRequestController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
 
         DB::beginTransaction();
@@ -204,14 +204,14 @@ class MoldRepairRequestController extends Controller
 
             if ($this->moldRepair == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "failed delete data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 200);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 
@@ -224,7 +224,7 @@ class MoldRepairRequestController extends Controller
             'value' => 'required_with:type'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 500);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "number") {
                 $this->moldRepair = DB::table('precise.mold_repair_request_hd')

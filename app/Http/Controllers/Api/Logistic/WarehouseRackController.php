@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Logistic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,8 +37,8 @@ class WarehouseRackController extends Controller
             ->get();
 
         if (count($this->rack) == 0)
-            return response()->json(["status" => "error", "message" => "not found"], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "data" => $this->rack], 200);
+        return ResponseController::json(status: "ok", data: $this->rack, code: 200);
     }
 }

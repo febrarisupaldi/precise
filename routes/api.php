@@ -88,7 +88,9 @@ Route::group(
                 Route::get('stock-diagram/warehouse/{id}', 'Api\Logistic\StockDiagramController@index');
                 Route::get('stock-diagram/warehouse/{id}/product/{product}', 'Api\Logistic\StockDiagramController@getStockDiagramByWarehouseAndProduct');
                 Route::get('stock-diagram/2/warehouse/{id}', 'Api\Logistic\StockDiagramController@getStockDiagram2');
-                Route::get('stock-diagram/2/item-code', 'Api\Logistic\StockDiagramController@getStockDiagram2ByItemCode');
+
+                //change route parameter
+                Route::get('stock-diagram/2/item-code/{itemCode}/warehouse/{warehouse}/uom/{uomCode}/appearance/{appearance}/item-design/{designCode?}', 'Api\Logistic\StockDiagramController@getStockDiagram2ByItemCode');
 
                 Route::get('stock-mutation/card/warehouse/{whid}/product/{productid}', 'Api\Logistic\StockMutationController@getStockCard');
                 Route::get('stock-mutation/warehouse/{whid}', 'Api\Logistic\StockMutationController@index');
@@ -117,7 +119,9 @@ Route::group(
                 Route::post('warehouse-rack-in', 'Api\Logistic\WarehouseRackInController@create');
                 Route::delete('warehouse-rack-in', 'Api\Logistic\WarehouseRackInController@destroy');
 
-                Route::get('warehouse-rack-out', 'Api\Logistic\WarehouseRackOutController@getByDate');
+                //change route parameter
+                Route::get('warehouse-rack-out/date{date}', 'Api\Logistic\WarehouseRackOutController@getByDate');
+
                 Route::get('warehouse-rack-out/detail/{id}', 'Api\Logistic\WarehouseRackOutController@getDetailByHeaderId');
                 Route::post('warehouse-rack-out', 'Api\Logistic\WarehouseRackOutController@createHeader');
                 Route::post('warehouse-rack-out/detail', 'Api\Logistic\WarehouseRackOutController@createDetail');

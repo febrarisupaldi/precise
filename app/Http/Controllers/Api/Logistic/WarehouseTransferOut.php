@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Logistic;
 
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,7 @@ class WarehouseTransferOut extends Controller
 {
     private $transfer;
 
-    public function index(Request $request, $type, $from): JsonResponse
+    public function index($type, $from, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
@@ -21,13 +22,13 @@ class WarehouseTransferOut extends Controller
             'end'       => 'required|required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
-        $f = explode('-', $from);
+        $from = explode('-', $from);
         $this->transfer = DB::table('precise.warehouse_trans_hd as hd ' . DB::raw('use index(`idx_on_wh_trans_hd___trans_date__trans_from__trans_type`)'))
             ->where('hd.trans_date', [$start, $end])
             ->where('hd.trans_type', $type)
-            ->whereIn('hd.trans_from', $f)
+            ->whereIn('hd.trans_from', $from)
             ->select(
                 'hd.trans_hd_id',
                 'hd.trans_number',
@@ -50,8 +51,9 @@ class WarehouseTransferOut extends Controller
             ->get();
 
         if (count($this->transfer) == 0)
-            return response()->json(['status' => 'error', 'data' => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->transfer], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->transfer, code: 200);
     }
 
     public function showDetailOnly($id): JsonResponse
@@ -77,11 +79,12 @@ class WarehouseTransferOut extends Controller
             ->get();
 
         if (count($this->transfer) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(["status" => "ok", "data" => $this->transfer], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->transfer, code: 200);
     }
 
-    public function getHeaderDetail(Request $request, $type, $from): JsonResponse
+    public function getHeaderDetail($type, $from, Request $request): JsonResponse
     {
         $start = $request->get('start');
         $end = $request->get('end');
@@ -90,7 +93,7 @@ class WarehouseTransferOut extends Controller
             'end'       => 'required|required_with:start|date_format:Y-m-d|after_or_equal:start'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $f = explode('-', $from);
         $this->transfer = DB::table('precise.warehouse_trans_hd as hd ' . DB::raw('use index(`idx_on_wh_trans_hd___trans_date__trans_from__trans_type`)'))
@@ -134,8 +137,9 @@ class WarehouseTransferOut extends Controller
             ->orderBy('dt.trans_seq')
             ->get();
         if (count($this->transfer) == 0)
-            return response()->json(["status" => "error", "data" => "not found"], 404);
-        return response()->json(['status' => 'ok', 'data' => $this->transfer], 200);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
+
+        return ResponseController::json(status: "ok", data: $this->transfer, code: 200);
     }
 
     public function check(Request $request): JsonResponse
@@ -148,14 +152,15 @@ class WarehouseTransferOut extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         } else {
             if ($type == "number") {
                 $this->transfer = DB::table('precise.warehouse_trans_hd')->where('trans_number', $value)->count();
             }
             if ($this->transfer == 0)
-                return response()->json(['status' => 'error', 'message' => $this->transfer], 404);
-            return response()->json(['status' => 'ok', 'message' => $this->transfer], 200);
+                return ResponseController::json(status: "error", message: $this->transfer, code: 404);
+
+            return ResponseController::json(status: "ok", message: $this->transfer, code: 200);
         }
     }
 }

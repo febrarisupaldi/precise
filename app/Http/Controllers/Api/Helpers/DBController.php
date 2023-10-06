@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class DBController extends Controller
 {
-    public static function reason(Request $request, $type, $data = "")
+    public static function reason(Request $request, $type, $data = ""): bool
     {
         //for form
         if ($data == "" || empty($data)) {
@@ -40,7 +40,7 @@ class DBController extends Controller
         return $reason;
     }
 
-    public function insertOrUpdate(array $rows, $table, $deletedString)
+    public function insertOrUpdate(array $rows, $table, $deletedString): bool
     {
         //$table = \DB::getTablePrefix() . with(new self)->getTable();
         $first = reset($rows);

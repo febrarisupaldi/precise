@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Logistic;
 
 use App\Http\Controllers\Api\Helpers\DBController;
+use App\Http\Controllers\Api\Helpers\ResponseController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,9 +27,9 @@ class WarehouseRackInController extends Controller
             ->get();
 
         if (count($this->rack) == 0)
-            return response()->json(["status" => "error", "message" => "not found"], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "data" => $this->rack], 200);
+        return ResponseController::json(status: "ok", data: $this->rack, code: 200);
     }
 
     public function show($id, $date): JsonResponse
@@ -64,9 +65,9 @@ class WarehouseRackInController extends Controller
             ->get();
 
         if (count($this->rack) == 0)
-            return response()->json(["status" => "error", "message" => "not found"], 404);
+            return ResponseController::json(status: "error", data: "not found", code: 404);
 
-        return response()->json(["status" => "ok", "data" => $this->rack], 200);
+        return ResponseController::json(status: "ok", data: $this->rack, code: 200);
     }
 
     public function create(Request $request): JsonResponse
@@ -82,7 +83,7 @@ class WarehouseRackInController extends Controller
             'created_by'    => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         $this->rack = DB::table("precise.warehouse_rack_in")
             ->insert([
@@ -96,11 +97,10 @@ class WarehouseRackInController extends Controller
                 'created_by'    => $request['created_by']
             ]);
 
-        if ($this->rack == 0) {
-            return response()->json(['status' => 'error', 'message' => 'failed input data'], 500);
-        }
+        if ($this->rack == 0)
+            return ResponseController::json(status: "error", message: "failed input data", code: 500);
 
-        return response()->json(['status' => 'ok', 'message' => 'success input data'], 200);
+        return ResponseController::json(status: "ok", message: "success input data", code: 200);
     }
 
     public function destroy(Request $request): JsonResponse
@@ -110,7 +110,7 @@ class WarehouseRackInController extends Controller
             'reason'                => 'required'
         ]);
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 400);
+            return ResponseController::json(status: "error", message: $validator->errors(), code: 400);
         }
         DB::beginTransaction();
         try {
@@ -121,14 +121,14 @@ class WarehouseRackInController extends Controller
 
             if ($this->rack == 0) {
                 DB::rollBack();
-                return response()->json(['status' => 'error', 'message' => 'Failed delete data'], 500);
+                return ResponseController::json(status: "error", message: "error delete data", code: 500);
             }
 
             DB::commit();
-            return response()->json(['status' => 'ok', 'message' => 'success delete data'], 204);
+            return ResponseController::json(status: "ok", message: "success delete data", code: 204);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return ResponseController::json(status: "error", message: $e->getMessage(), code: 500);
         }
     }
 }
